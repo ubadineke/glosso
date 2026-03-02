@@ -1,0 +1,29 @@
+{
+  "name": "@glosso/cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Glosso CLI provisioner",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "glosso": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "glosso": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@glosso/core": "workspace:*",
+    "@solana/web3.js": "^1.98.0",
+    "commander": "^12.0.0",
+    "chalk": "^4.1.2",
+    "ora": "^5.4.1",
+    "inquirer": "^8.2.6"
+  },
+  "optionalDependencies": {
+    "@turnkey/sdk-server": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/inquirer": "^9.0.0"
+  }
+}

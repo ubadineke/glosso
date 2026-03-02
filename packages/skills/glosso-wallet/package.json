@@ -1,0 +1,16 @@
+{
+  "name": "@glosso/skill-wallet",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Glosso wallet skill — balance, send, history for AI agents",
+  "scripts": {
+    "balance": "tsx scripts/balance.ts",
+    "send": "tsx scripts/send.ts",
+    "history": "tsx scripts/history.ts"
+  },
+  "dependencies": {
+    "@glosso/core": "workspace:*",
+    "@solana/web3.js": "^1.98.0",
+    "@solana/spl-token": "^0.4.0"
+  }
+}

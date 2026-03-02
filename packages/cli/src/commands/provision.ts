@@ -1,0 +1,352 @@
+import { Command } from 'commander';
+import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import {
+  generateMnemonic,
+  deriveAddress,
+  encrypt,
+} from '@glosso/core';
+import { generateGlossoMd } from '../generate-md';
+
+export const provisionCommand = new Command('provision')
+  .description('Provision a new Glosso wallet for an AI agent')
+  .option('-m, --mode <mode>', 'Wallet mode: sovereign, privy, or turnkey', 'sovereign')
+  .option('-a, --agent <name>', 'Agent name (used for display and GLOSSO.md)', 'default-agent')
+  .option('-d, --dir <path>', 'Output directory for .env and GLOSSO.md', '.')
+  .option('-n, --network <network>', 'Solana network: devnet, testnet, mainnet-beta', 'devnet')
+  .option('--passphrase <passphrase>', 'Encryption passphrase (auto-generated if omitted)')
+  .option('--no-airdrop', 'Skip devnet airdrop')
+  .option('--sub-wallets <count>', 'Number of sub-wallets to derive', '3')
+  .action(async (options) => {
+    try {
+      await runProvision(options);
+    } catch (err: any) {
+      console.error(`\n❌ Provisioning failed: ${err.message}`);
+      process.exit(1);
+    }
+  });
+
+interface ProvisionOptions {
+  mode: string;
+  agent: string;
+  dir: string;
+  network: string;
+  passphrase?: string;
+  airdrop: boolean;
+  subWallets: string;
+}
+
+async function runProvision(options: ProvisionOptions) {
+  const { mode, agent, dir, network } = options;
+  const subWalletCount = parseInt(options.subWallets, 10);
+
+  console.log('╔══════════════════════════════════════════╗');
+  console.log('║   GLOSSO — Wallet Provisioning            ║');
+  console.log('╚══════════════════════════════════════════╝\n');
+  console.log(`   Mode:       ${mode}`);
+  console.log(`   Agent:      ${agent}`);
+  console.log(`   Network:    ${network}`);
+  console.log(`   Directory:  ${path.resolve(dir)}\n`);
+
+  if (!['sovereign', 'privy', 'turnkey'].includes(mode)) {
+    throw new Error(`Invalid mode "${mode}". Must be: sovereign, privy, or turnkey`);
+  }
+
+  const outputDir = path.resolve(dir);
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
+  if (mode === 'sovereign') {
+    await provisionSovereign(options, outputDir, subWalletCount);
+  } else if (mode === 'privy') {
+    await provisionPrivy(options, outputDir, subWalletCount);
+  } else if (mode === 'turnkey') {
+    await provisionTurnkey(options, outputDir, subWalletCount);
+  }
+}
+
+async function provisionSovereign(
+  options: ProvisionOptions,
+  outputDir: string,
+  subWalletCount: number
+) {
+  // 1. Generate mnemonic
+  console.log('── Step 1: Generate BIP39 Mnemonic ──\n');
+  const mnemonic = generateMnemonic();
+  console.log('   ✅ 12-word mnemonic generated');
+  console.log('   ⚠️  Mnemonic will NOT be displayed — it is encrypted immediately\n');
+
+  // 2. Generate or use provided passphrase
+  console.log('── Step 2: Encrypt Master Seed ──\n');
+  const passphrase =
+    options.passphrase || crypto.randomBytes(32).toString('base64url');
+  const encryptedSeed = encrypt(mnemonic, passphrase);
+  console.log('   ✅ Mnemonic encrypted with AES-256-GCM');
+  console.log(`   ✅ Encrypted blob: ${encryptedSeed.substring(0, 30)}...`);
+
+  // 3. Derive addresses
+  console.log('\n── Step 3: Derive Wallet Addresses ──\n');
+  const addresses: string[] = [];
+  const labels = ['primary', 'trading', 'vault', 'gas', 'escrow', 'reserve'];
+  for (let i = 0; i < subWalletCount; i++) {
+    const addr = deriveAddress(mnemonic, i);
+    addresses.push(addr);
+    const label = labels[i] || `sub-${i}`;
+    console.log(`   ✅ Index ${i} (${label}): ${addr}`);
+  }
+
+  // 4. Write .env file
+  console.log('\n── Step 4: Write Configuration ──\n');
+  const envPath = path.join(outputDir, '.env');
+  const envContent = [
+    '# Glosso Wallet Configuration',
+    `# Provisioned: ${new Date().toISOString()}`,
+    `# Agent: ${options.agent}`,
+    `# Mode: ${options.mode}`,
+    '',
+    '# Wallet mode (sovereign | privy | turnkey)',
+    `GLOSSO_MODE=${options.mode}`,
+    '',
+    '# Solana network (devnet | testnet | mainnet-beta)',
+    `GLOSSO_NETWORK=${options.network}`,
+    '',
+    '# Encrypted master seed (AES-256-GCM)',
+    '# ⚠️  NEVER commit this to version control',
+    `GLOSSO_MASTER_SEED_ENCRYPTED=${encryptedSeed}`,
+    '',
+    '# Encryption passphrase for the master seed',
+    '# ⚠️  In production, use a secrets manager instead of .env',
+    `GLOSSO_ENCRYPTION_PASSPHRASE=${passphrase}`,
+    '',
+    `# Primary wallet address (for reference — derived from seed)`,
+    `GLOSSO_PRIMARY_ADDRESS=${addresses[0]}`,
+    '',
+  ].join('\n');
+
+  fs.writeFileSync(envPath, envContent, 'utf-8');
+  console.log(`   ✅ .env written to ${envPath}`);
+
+  // 5. Generate GLOSSO.md
+  console.log('\n── Step 5: Generate GLOSSO.md ──\n');
+  const glossoMd = generateGlossoMd({
+    agentName: options.agent,
+    mode: options.mode,
+    network: options.network,
+    primaryAddress: addresses[0],
+    subWallets: addresses.map((addr, i) => ({
+      index: i,
+      label: labels[i] || `sub-${i}`,
+      address: addr,
+    })),
+    skills: ['glosso-wallet'],
+  });
+
+  const mdPath = path.join(outputDir, 'GLOSSO.md');
+  fs.writeFileSync(mdPath, glossoMd, 'utf-8');
+  console.log(`   ✅ GLOSSO.md written to ${mdPath}`);
+
+  // 6. Airdrop (if devnet and not disabled)
+  if (options.airdrop && options.network === 'devnet') {
+    console.log('\n── Step 6: Devnet Airdrop ──\n');
+    try {
+      const { requestAirdrop } = await import('@glosso/core');
+      await requestAirdrop(addresses[0], 1);
+      console.log(`   ✅ 1 SOL airdropped to ${addresses[0]}`);
+    } catch (err: any) {
+      console.log(`   ⚠️  Airdrop failed (rate-limited?): ${err.message}`);
+      console.log('   ℹ️  You can fund manually: solana airdrop 1 ' + addresses[0]);
+    }
+  }
+
+  // 7. Summary
+  console.log('\n╔══════════════════════════════════════════╗');
+  console.log('║   PROVISIONING COMPLETE                   ║');
+  console.log('╚══════════════════════════════════════════╝');
+  console.log(`\n   Agent:     ${options.agent}`);
+  console.log(`   Mode:      ${options.mode}`);
+  console.log(`   Network:   ${options.network}`);
+  console.log(`   Address:   ${addresses[0]}`);
+  console.log(`   .env:      ${envPath}`);
+  console.log(`   GLOSSO.md: ${mdPath}`);
+  console.log('\n   ⚠️  Back up your .env file securely — it holds your encrypted keys');
+  console.log('   ⚠️  NEVER share or commit the .env file to version control\n');
+}
+
+async function provisionPrivy(
+  options: ProvisionOptions,
+  outputDir: string,
+  _subWalletCount: number
+) {
+  console.log('── Privy Provisioning ──\n');
+
+  const appId = process.env.PRIVY_APP_ID;
+  const appSecret = process.env.PRIVY_APP_SECRET;
+
+  if (!appId || !appSecret) {
+    throw new Error(
+      'Privy provisioning requires PRIVY_APP_ID and PRIVY_APP_SECRET environment variables.\n' +
+      'Get these from https://dashboard.privy.io'
+    );
+  }
+
+  // Create wallet via Privy server API
+  const response = await fetch('https://auth.privy.io/api/v1/wallets', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'privy-app-id': appId,
+      Authorization: `Basic ${Buffer.from(`${appId}:${appSecret}`).toString('base64')}`,
+    },
+    body: JSON.stringify({
+      chain_type: 'solana',
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Privy API error (${response.status}): ${body}`);
+  }
+
+  const walletData = await response.json() as {
+    id: string;
+    address: string;
+    chain_type: string;
+  };
+  console.log(`   ✅ Privy wallet created`);
+  console.log(`   Wallet ID: ${walletData.id}`);
+  console.log(`   Address:   ${walletData.address}`);
+
+  // Write .env
+  const envPath = path.join(outputDir, '.env');
+  const envContent = [
+    '# Glosso Wallet Configuration (Privy)',
+    `# Provisioned: ${new Date().toISOString()}`,
+    `# Agent: ${options.agent}`,
+    '',
+    `GLOSSO_MODE=privy`,
+    `GLOSSO_NETWORK=${options.network}`,
+    `PRIVY_APP_ID=${appId}`,
+    `PRIVY_APP_SECRET=${appSecret}`,
+    `PRIVY_WALLET_ID=${walletData.id}`,
+    `GLOSSO_PRIMARY_ADDRESS=${walletData.address}`,
+    '',
+  ].join('\n');
+
+  fs.writeFileSync(envPath, envContent, 'utf-8');
+  console.log(`   ✅ .env written to ${envPath}`);
+
+  // Generate GLOSSO.md
+  const glossoMd = generateGlossoMd({
+    agentName: options.agent,
+    mode: 'privy',
+    network: options.network,
+    primaryAddress: walletData.address,
+    subWallets: [{ index: 0, label: 'primary', address: walletData.address }],
+    skills: ['glosso-wallet'],
+  });
+
+  const mdPath = path.join(outputDir, 'GLOSSO.md');
+  fs.writeFileSync(mdPath, glossoMd, 'utf-8');
+  console.log(`   ✅ GLOSSO.md written to ${mdPath}`);
+
+  console.log('\n╔══════════════════════════════════════════╗');
+  console.log('║   PRIVY PROVISIONING COMPLETE             ║');
+  console.log('╚══════════════════════════════════════════╝');
+  console.log(`\n   Address: ${walletData.address}\n`);
+}
+
+async function provisionTurnkey(
+  options: ProvisionOptions,
+  outputDir: string,
+  _subWalletCount: number
+) {
+  console.log('── Turnkey Provisioning ──\n');
+
+  const orgId = process.env.TURNKEY_ORGANIZATION_ID;
+  const apiPublicKey = process.env.TURNKEY_API_PUBLIC_KEY;
+  const apiPrivateKey = process.env.TURNKEY_API_PRIVATE_KEY;
+
+  if (!orgId || !apiPublicKey || !apiPrivateKey) {
+    throw new Error(
+      'Turnkey provisioning requires TURNKEY_ORGANIZATION_ID, TURNKEY_API_PUBLIC_KEY, and TURNKEY_API_PRIVATE_KEY.\n' +
+      'Get these from https://dashboard.turnkey.com'
+    );
+  }
+
+  // Turnkey wallet creation via SDK
+  let walletAddress: string;
+  let walletId: string;
+
+  try {
+    const { Turnkey } = await import('@turnkey/sdk-server');
+    const turnkey = new Turnkey({
+      apiBaseUrl: 'https://api.turnkey.com',
+      apiPublicKey,
+      apiPrivateKey,
+      defaultOrganizationId: orgId,
+    });
+
+    const client = await turnkey.apiClient();
+
+    const wallet = await client.createWallet({
+      walletName: `glosso-${options.agent}-${Date.now()}`,
+      accounts: [
+        {
+          curve: 'CURVE_ED25519' as any,
+          pathFormat: 'PATH_FORMAT_BIP32' as any,
+          path: "m/44'/501'/0'/0'",
+          addressFormat: 'ADDRESS_FORMAT_SOLANA' as any,
+        },
+      ],
+    });
+
+    walletId = wallet.walletId;
+    walletAddress = wallet.addresses[0];
+    console.log(`   ✅ Turnkey wallet created`);
+    console.log(`   Wallet ID: ${walletId}`);
+    console.log(`   Address:   ${walletAddress}`);
+  } catch (err: any) {
+    throw new Error(`Turnkey wallet creation failed: ${err.message}`);
+  }
+
+  // Write .env
+  const envPath = path.join(outputDir, '.env');
+  const envContent = [
+    '# Glosso Wallet Configuration (Turnkey)',
+    `# Provisioned: ${new Date().toISOString()}`,
+    `# Agent: ${options.agent}`,
+    '',
+    `GLOSSO_MODE=turnkey`,
+    `GLOSSO_NETWORK=${options.network}`,
+    `TURNKEY_ORGANIZATION_ID=${orgId}`,
+    `TURNKEY_API_PUBLIC_KEY=${apiPublicKey}`,
+    `TURNKEY_API_PRIVATE_KEY=${apiPrivateKey}`,
+    `TURNKEY_WALLET_ID=${walletId}`,
+    `GLOSSO_PRIMARY_ADDRESS=${walletAddress}`,
+    '',
+  ].join('\n');
+
+  fs.writeFileSync(envPath, envContent, 'utf-8');
+  console.log(`   ✅ .env written to ${envPath}`);
+
+  // Generate GLOSSO.md
+  const glossoMd = generateGlossoMd({
+    agentName: options.agent,
+    mode: 'turnkey',
+    network: options.network,
+    primaryAddress: walletAddress,
+    subWallets: [{ index: 0, label: 'primary', address: walletAddress }],
+    skills: ['glosso-wallet'],
+  });
+
+  const mdPath = path.join(outputDir, 'GLOSSO.md');
+  fs.writeFileSync(mdPath, glossoMd, 'utf-8');
+  console.log(`   ✅ GLOSSO.md written to ${mdPath}`);
+
+  console.log('\n╔══════════════════════════════════════════╗');
+  console.log('║   TURNKEY PROVISIONING COMPLETE           ║');
+  console.log('╚══════════════════════════════════════════╝');
+  console.log(`\n   Address: ${walletAddress}\n`);
+}

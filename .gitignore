@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+*.js.map
+*.d.ts
+!packages/*/src/**
+.DS_Store
+
+glosso-video/
+demo-video

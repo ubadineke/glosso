@@ -1,0 +1,24 @@
+{
+  "name": "@glosso/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Glosso wallet provisioning engine",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test:connection": "tsx src/test-connection.ts",
+    "test:derive": "tsx src/test-derive.ts",
+    "test:sovereign": "tsx src/test-sovereign.ts"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.98.0",
+    "bip39": "^3.1.0",
+    "ed25519-hd-key": "^1.3.0",
+    "tweetnacl": "^1.0.3"
+  },
+  "optionalDependencies": {
+    "@turnkey/sdk-server": "^3.0.0",
+    "@turnkey/solana": "^1.0.0"
+  }
+}

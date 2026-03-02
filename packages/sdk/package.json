@@ -1,0 +1,22 @@
+{
+  "name": "@glosso/sdk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Glosso SDK — wallet infrastructure for AI agents on Solana",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@glosso/core": "workspace:*"
+  },
+  "keywords": ["solana", "wallet", "agent", "ai", "defi", "glosso"],
+  "license": "MIT"
+}

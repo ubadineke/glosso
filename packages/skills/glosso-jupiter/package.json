@@ -1,0 +1,14 @@
+{
+  "name": "@glosso/skill-jupiter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Glosso Jupiter skill — token swap quotes and execution for AI agents",
+  "scripts": {
+    "quote": "tsx scripts/swap.ts quote",
+    "swap": "tsx scripts/swap.ts swap"
+  },
+  "dependencies": {
+    "@glosso/core": "workspace:*",
+    "@solana/web3.js": "^1.98.0"
+  }
+}

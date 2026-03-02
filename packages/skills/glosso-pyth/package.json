@@ -1,0 +1,12 @@
+{
+  "name": "@glosso/skill-pyth",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Glosso Pyth skill — real-time price feeds for AI agents",
+  "scripts": {
+    "price": "tsx scripts/price.ts"
+  },
+  "dependencies": {
+    "@pythnetwork/hermes-client": "^1.0.0"
+  }
+}
