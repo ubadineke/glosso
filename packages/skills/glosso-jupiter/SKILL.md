@@ -1,7 +1,7 @@
 ---
 name: glosso-jupiter
 description: Token swap quotes and execution on Solana via Jupiter Aggregator — SOL, USDC, JUP, BONK and more
-metadata: {"openclaw": {"emoji": "🔄", "requires": {"env": ["GLOSSO_MASTER_SEED_ENCRYPTED", "GLOSSO_ENCRYPTION_PASSPHRASE"], "bins": ["node"]}, "primaryEnv": "GLOSSO_ENCRYPTION_PASSPHRASE"}}
+metadata: {"openclaw": {"emoji": "🔄", "requires": {"bins": ["node"]}}}
 ---
 
 # SKILL.md — glosso-jupiter

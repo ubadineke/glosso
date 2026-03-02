@@ -1,7 +1,7 @@
 ---
 name: glosso-wallet
 description: Autonomous Solana wallet — check balance, send SOL, and view transaction history on Solana
-metadata: {"openclaw": {"emoji": "💳", "requires": {"env": ["GLOSSO_MASTER_SEED_ENCRYPTED", "GLOSSO_ENCRYPTION_PASSPHRASE"], "bins": ["node"]}, "primaryEnv": "GLOSSO_ENCRYPTION_PASSPHRASE"}}
+metadata: {"openclaw": {"emoji": "💳", "requires": {"bins": ["node"]}}}
 ---
 
 # SKILL.md — glosso-wallet
