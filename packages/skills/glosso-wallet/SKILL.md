@@ -185,11 +185,12 @@ This installs dependencies and, if no wallet exists, runs the provisioning wizar
 
 If the user asks to **create a Solana wallet**, **set up a wallet**, or **choose a wallet type**:
 
-1. Ask the user which mode they want: `sovereign` (self-custody), `privy` (TEE-based), or `turnkey` (HSM-based)
-2. Run the provisioner with their chosen mode:
+1. Ask the user which mode they want: `sovereign` (self-custody, recommended), `privy` (TEE-based), or `turnkey` (HSM-based)
+2. Run the provisioner by calling the provision script in this skill folder:
    ```bash
-   npx tsx {baseDir}/../../../cli/src/index.ts provision --mode sovereign --dir ~/.glosso
+   bash {baseDir}/scripts/provision.sh --mode sovereign
    ```
    Replace `sovereign` with `privy` or `turnkey` based on their choice.
+   For mainnet, add `--network mainnet-beta`.
 3. The provisioner writes credentials to `~/.glosso/.env` — all skill scripts load this automatically.
-4. Wallet is ready. You can immediately call `glosso_balance()` to confirm.
+4. Wallet is ready. Immediately call `glosso_balance()` to confirm the address and starting balance.
