@@ -1,6 +1,6 @@
 ---
 name: glosso-wallet
-description: Autonomous Solana wallet — check balance, send SOL, and view transaction history on Solana
+description: Solana wallet infrastructure for AI agents. Three provisioning modes - sovereign (self-custody HD keys, recommended), privy (Privy TEE-managed keys), turnkey (Turnkey HSM-managed keys). To provision, ask the user which mode then run bash {baseDir}/scripts/provision.sh --mode sovereign. After provisioning run tsx {baseDir}/scripts/balance.ts to check balance, tsx {baseDir}/scripts/send.ts <to> <amount> to send SOL, tsx {baseDir}/scripts/history.ts to view transactions. Read {baseDir}/SKILL.md for full function docs.
 metadata: {"openclaw": {"emoji": "💳", "requires": {"bins": ["node"]}}}
 ---
 

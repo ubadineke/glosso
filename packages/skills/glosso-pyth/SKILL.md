@@ -1,6 +1,6 @@
 ---
 name: glosso-pyth
-description: Real-time Solana and crypto price feeds via Pyth Network — SOL, BTC, ETH, JUP, BONK and more. No API key required.
+description: Real-time crypto price feeds via Pyth Network Hermes API (free, no key). Pairs - SOL/USD, BTC/USD, ETH/USD, USDC/USD, USDT/USD, JUP/USD, BONK/USD, WIF/USD, PYTH/USD, RAY/USD. Run tsx {baseDir}/scripts/price.ts SOL/USD to get price. Read {baseDir}/SKILL.md for full docs.
 metadata: {"openclaw": {"emoji": "📊", "requires": {"bins": ["node"]}}}
 ---
 
