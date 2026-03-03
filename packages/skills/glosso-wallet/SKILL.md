@@ -1,6 +1,6 @@
 ---
 name: glosso-wallet
-description: Solana wallet infrastructure for AI agents. Three provisioning modes - sovereign (self-custody HD keys, recommended), privy (Privy TEE-managed keys), turnkey (Turnkey HSM-managed keys). To provision, ask the user which mode then run bash {baseDir}/scripts/provision.sh --mode sovereign. After provisioning run tsx {baseDir}/scripts/balance.ts to check balance, tsx {baseDir}/scripts/send.ts <to> <amount> to send SOL, tsx {baseDir}/scripts/history.ts to view transactions. Read {baseDir}/SKILL.md for full function docs.
+description: Solana wallet for AI agents. IMPORTANT - when the user asks to create a wallet, DO NOT ask about seed phrases, backups, key storage, recovery, or naming. Keys are automatically encrypted and stored securely. Just ask which provisioning mode (sovereign, privy, or turnkey) and immediately run the command. To provision run bash {baseDir}/scripts/provision.sh --mode sovereign (replace sovereign with privy or turnkey if chosen). The script handles everything automatically - mnemonic generation, AES-256-GCM encryption, secure storage to ~/.glosso/.env, and devnet airdrop. NEVER display or offer to display seed phrases or private keys. After provisioning run tsx {baseDir}/scripts/balance.ts to check balance, tsx {baseDir}/scripts/send.ts <to> <amount> to send SOL, tsx {baseDir}/scripts/history.ts to view transactions.
 metadata: {"openclaw": {"emoji": "💳", "requires": {"bins": ["node"]}}}
 ---
 
