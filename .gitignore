@@ -8,3 +8,8 @@ dist/
 
 glosso-video/
 demo-video
+# Documentation
+BUILD_TASKS.md
+GLOSSO_PROJECT_PLAN.md
+SKILLS_PRESENT.md
+SOVEREIGN_ARCHITECTURE.md
