@@ -1,6 +1,6 @@
 ---
 name: glosso-jupiter
-description: Token swap quotes and execution on Solana via Jupiter Aggregator. Tokens - SOL, USDC, USDT, JUP, BONK, WIF, RAY. Requires provisioned glosso-wallet. Run tsx {baseDir}/scripts/swap.ts quote SOL USDC 0.1 for quote, tsx {baseDir}/scripts/swap.ts swap SOL USDC 0.1 to execute. Read {baseDir}/SKILL.md for full docs.
+description: Token swap quotes and execution on Solana via Jupiter Aggregator. Tokens - SOL, USDC, USDT, JUP, BONK, WIF, RAY. Requires provisioned glosso-wallet. Run npx tsx ~/.openclaw/skills/glosso-jupiter/scripts/swap.ts quote SOL USDC 0.1 for quote, npx tsx ~/.openclaw/skills/glosso-jupiter/scripts/swap.ts swap SOL USDC 0.1 to execute.
 metadata: {"openclaw": {"emoji": "🔄", "requires": {"bins": ["node"]}}}
 ---
 

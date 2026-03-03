@@ -1,6 +1,6 @@
 ---
 name: glosso-pyth
-description: Real-time crypto price feeds via Pyth Network Hermes API (free, no key). Pairs - SOL/USD, BTC/USD, ETH/USD, USDC/USD, USDT/USD, JUP/USD, BONK/USD, WIF/USD, PYTH/USD, RAY/USD. Run tsx {baseDir}/scripts/price.ts SOL/USD to get price. Read {baseDir}/SKILL.md for full docs.
+description: Real-time crypto price feeds via Pyth Network Hermes API (free, no key). Pairs - SOL/USD, BTC/USD, ETH/USD, USDC/USD, USDT/USD, JUP/USD, BONK/USD, WIF/USD, PYTH/USD, RAY/USD. Run npx tsx ~/.openclaw/skills/glosso-pyth/scripts/price.ts SOL/USD to get price.
 metadata: {"openclaw": {"emoji": "📊", "requires": {"bins": ["node"]}}}
 ---
 
