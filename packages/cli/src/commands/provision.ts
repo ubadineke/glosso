@@ -8,6 +8,15 @@ import {
   encrypt,
 } from '@glosso/core';
 import { generateGlossoMd } from '../generate-md';
+import {
+  loadEnvFile,
+  parseEnvFile,
+  serializeEnvFile,
+  upsertHeaderKey,
+  reconcileKeys,
+  ENV_FILE_HEADER_COMMENT,
+  WALLET_ADDRESS_KEY,
+} from '../utils/env';
 
 export const provisionCommand = new Command('provision')
   .description('Provision a new Glosso wallet for an AI agent')
@@ -16,7 +25,6 @@ export const provisionCommand = new Command('provision')
   .option('-d, --dir <path>', 'Output directory for .env and GLOSSO.md', '.')
   .option('-n, --network <network>', 'Solana network: devnet, testnet, mainnet-beta', 'devnet')
   .option('--passphrase <passphrase>', 'Encryption passphrase (auto-generated if omitted)')
-  .option('--no-airdrop', 'Skip devnet airdrop')
   .option('--sub-wallets <count>', 'Number of sub-wallets to derive', '3')
   .action(async (options) => {
     try {
@@ -33,13 +41,18 @@ interface ProvisionOptions {
   dir: string;
   network: string;
   passphrase?: string;
-  airdrop: boolean;
   subWallets: string;
 }
 
 async function runProvision(options: ProvisionOptions) {
   const { mode, agent, dir, network } = options;
   const subWalletCount = parseInt(options.subWallets, 10);
+
+  // Load .env files so credentials set in --dir or repo root are available.
+  // Priority: --dir .env first, then repo root .env (non-overwriting).
+  const outputDir = path.resolve(dir);
+  loadEnvFile(path.join(outputDir, '.env'));
+  loadEnvFile(path.join(process.cwd(), '.env'));
 
   console.log('╔══════════════════════════════════════════╗');
   console.log('║   GLOSSO — Wallet Provisioning            ║');
@@ -53,7 +66,6 @@ async function runProvision(options: ProvisionOptions) {
     throw new Error(`Invalid mode "${mode}". Must be: sovereign, privy, or turnkey`);
   }
 
-  const outputDir = path.resolve(dir);
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
   }
@@ -97,36 +109,38 @@ async function provisionSovereign(
     console.log(`   ✅ Index ${i} (${label}): ${addr}`);
   }
 
-  // 4. Write .env file
+  // 4. Write .env file (append/update section — never overwrite other sections)
   console.log('\n── Step 4: Write Configuration ──\n');
   const envPath = path.join(outputDir, '.env');
-  const envContent = [
-    '# Glosso Wallet Configuration',
-    `# Provisioned: ${new Date().toISOString()}`,
-    `# Agent: ${options.agent}`,
-    `# Mode: ${options.mode}`,
-    '',
-    '# Wallet mode (sovereign | privy | turnkey)',
-    `GLOSSO_MODE=${options.mode}`,
-    '',
-    '# Solana network (devnet | testnet | mainnet-beta)',
-    `GLOSSO_NETWORK=${options.network}`,
-    '',
-    '# Encrypted master seed (AES-256-GCM)',
-    '# ⚠️  NEVER commit this to version control',
+  const envFile = parseEnvFile(envPath);
+  // Initialise header comment block if the file is new, empty, or whitespace-only.
+  // Checking for any key=value line (not just array length) handles all blank cases.
+  if (!envFile.header.some((l) => /^\s*\w+=/.test(l))) {
+    envFile.header = [...ENV_FILE_HEADER_COMMENT];
+  }
+  upsertHeaderKey(envFile.header, 'GLOSSO_MODE', options.mode);
+  upsertHeaderKey(envFile.header, 'GLOSSO_NETWORK', options.network);
+  upsertHeaderKey(envFile.header, 'GLOSSO_PRIMARY_ADDRESS', addresses[0]);
+  const subWalletComments = addresses.map(
+    (addr, i) => `#   Index ${i} (${labels[i] || `sub-${i}`}): ${addr}`
+  );
+  reconcileKeys(envFile, 'Sovereign', [
+    WALLET_ADDRESS_KEY.Sovereign,
+    'GLOSSO_MASTER_SEED_ENCRYPTED',
+    'GLOSSO_ENCRYPTION_PASSPHRASE',
+  ]);
+  envFile.sections.set('Sovereign', [
+    `# Provisioned: ${new Date().toISOString()} | Agent: ${options.agent}`,
+    `# ⚠️  In production store these in a secrets manager, not .env`,
+    `${WALLET_ADDRESS_KEY.Sovereign}=${addresses[0]}`,
     `GLOSSO_MASTER_SEED_ENCRYPTED=${encryptedSeed}`,
-    '',
-    '# Encryption passphrase for the master seed',
-    '# ⚠️  In production, use a secrets manager instead of .env',
     `GLOSSO_ENCRYPTION_PASSPHRASE=${passphrase}`,
-    '',
-    `# Primary wallet address (for reference — derived from seed)`,
-    `GLOSSO_PRIMARY_ADDRESS=${addresses[0]}`,
-    '',
-  ].join('\n');
-
-  fs.writeFileSync(envPath, envContent, 'utf-8');
-  console.log(`   ✅ .env written to ${envPath}`);
+    '#',
+    '# Derived sub-wallet addresses:',
+    ...subWalletComments,
+  ]);
+  fs.writeFileSync(envPath, serializeEnvFile(envFile), 'utf-8');
+  console.log(`   ✅ .env updated (Sovereign section) → ${envPath}`);
 
   // 5. Generate GLOSSO.md
   console.log('\n── Step 5: Generate GLOSSO.md ──\n');
@@ -147,20 +161,7 @@ async function provisionSovereign(
   fs.writeFileSync(mdPath, glossoMd, 'utf-8');
   console.log(`   ✅ GLOSSO.md written to ${mdPath}`);
 
-  // 6. Airdrop (if devnet and not disabled)
-  if (options.airdrop && options.network === 'devnet') {
-    console.log('\n── Step 6: Devnet Airdrop ──\n');
-    try {
-      const { requestAirdrop } = await import('@glosso/core');
-      await requestAirdrop(addresses[0], 1);
-      console.log(`   ✅ 1 SOL airdropped to ${addresses[0]}`);
-    } catch (err: any) {
-      console.log(`   ⚠️  Airdrop failed (rate-limited?): ${err.message}`);
-      console.log('   ℹ️  You can fund manually: solana airdrop 1 ' + addresses[0]);
-    }
-  }
-
-  // 7. Summary
+  // 6. Summary
   console.log('\n╔══════════════════════════════════════════╗');
   console.log('║   PROVISIONING COMPLETE                   ║');
   console.log('╚══════════════════════════════════════════╝');
@@ -218,24 +219,30 @@ async function provisionPrivy(
   console.log(`   Wallet ID: ${walletData.id}`);
   console.log(`   Address:   ${walletData.address}`);
 
-  // Write .env
+  // Write .env (append/update section — never overwrite other sections)
   const envPath = path.join(outputDir, '.env');
-  const envContent = [
-    '# Glosso Wallet Configuration (Privy)',
-    `# Provisioned: ${new Date().toISOString()}`,
-    `# Agent: ${options.agent}`,
-    '',
-    `GLOSSO_MODE=privy`,
-    `GLOSSO_NETWORK=${options.network}`,
+  const envFile = parseEnvFile(envPath);
+  if (!envFile.header.some((l) => /^\s*\w+=/.test(l))) {
+    envFile.header = [...ENV_FILE_HEADER_COMMENT];
+  }
+  upsertHeaderKey(envFile.header, 'GLOSSO_MODE', 'privy');
+  upsertHeaderKey(envFile.header, 'GLOSSO_NETWORK', options.network);
+  upsertHeaderKey(envFile.header, 'GLOSSO_PRIMARY_ADDRESS', walletData.address);
+  reconcileKeys(envFile, 'Privy', [
+    WALLET_ADDRESS_KEY.Privy,
+    'PRIVY_APP_ID',
+    'PRIVY_APP_SECRET',
+    'PRIVY_WALLET_ID',
+  ]);
+  envFile.sections.set('Privy', [
+    `# Provisioned: ${new Date().toISOString()} | Agent: ${options.agent}`,
+    `${WALLET_ADDRESS_KEY.Privy}=${walletData.address}`,
     `PRIVY_APP_ID=${appId}`,
     `PRIVY_APP_SECRET=${appSecret}`,
     `PRIVY_WALLET_ID=${walletData.id}`,
-    `GLOSSO_PRIMARY_ADDRESS=${walletData.address}`,
-    '',
-  ].join('\n');
-
-  fs.writeFileSync(envPath, envContent, 'utf-8');
-  console.log(`   ✅ .env written to ${envPath}`);
+  ]);
+  fs.writeFileSync(envPath, serializeEnvFile(envFile), 'utf-8');
+  console.log(`   ✅ .env updated (Privy section) → ${envPath}`);
 
   // Generate GLOSSO.md
   const glossoMd = generateGlossoMd({
@@ -311,25 +318,32 @@ async function provisionTurnkey(
     throw new Error(`Turnkey wallet creation failed: ${err.message}`);
   }
 
-  // Write .env
+  // Write .env (append/update section — never overwrite other sections)
   const envPath = path.join(outputDir, '.env');
-  const envContent = [
-    '# Glosso Wallet Configuration (Turnkey)',
-    `# Provisioned: ${new Date().toISOString()}`,
-    `# Agent: ${options.agent}`,
-    '',
-    `GLOSSO_MODE=turnkey`,
-    `GLOSSO_NETWORK=${options.network}`,
+  const envFile = parseEnvFile(envPath);
+  if (!envFile.header.some((l) => /^\s*\w+=/.test(l))) {
+    envFile.header = [...ENV_FILE_HEADER_COMMENT];
+  }
+  upsertHeaderKey(envFile.header, 'GLOSSO_MODE', 'turnkey');
+  upsertHeaderKey(envFile.header, 'GLOSSO_NETWORK', options.network);
+  upsertHeaderKey(envFile.header, 'GLOSSO_PRIMARY_ADDRESS', walletAddress);
+  reconcileKeys(envFile, 'Turnkey', [
+    WALLET_ADDRESS_KEY.Turnkey,
+    'TURNKEY_ORGANIZATION_ID',
+    'TURNKEY_API_PUBLIC_KEY',
+    'TURNKEY_API_PRIVATE_KEY',
+    'TURNKEY_WALLET_ID',
+  ]);
+  envFile.sections.set('Turnkey', [
+    `# Provisioned: ${new Date().toISOString()} | Agent: ${options.agent}`,
+    `${WALLET_ADDRESS_KEY.Turnkey}=${walletAddress}`,
     `TURNKEY_ORGANIZATION_ID=${orgId}`,
     `TURNKEY_API_PUBLIC_KEY=${apiPublicKey}`,
     `TURNKEY_API_PRIVATE_KEY=${apiPrivateKey}`,
     `TURNKEY_WALLET_ID=${walletId}`,
-    `GLOSSO_PRIMARY_ADDRESS=${walletAddress}`,
-    '',
-  ].join('\n');
-
-  fs.writeFileSync(envPath, envContent, 'utf-8');
-  console.log(`   ✅ .env written to ${envPath}`);
+  ]);
+  fs.writeFileSync(envPath, serializeEnvFile(envFile), 'utf-8');
+  console.log(`   ✅ .env updated (Turnkey section) → ${envPath}`);
 
   // Generate GLOSSO.md
   const glossoMd = generateGlossoMd({

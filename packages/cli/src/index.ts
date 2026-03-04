@@ -3,6 +3,7 @@
 import { Command } from 'commander';
 import { provisionCommand } from './commands/provision';
 import { statusCommand } from './commands/status';
+import { switchCommand } from './commands/switch';
 
 const program = new Command();
 
@@ -13,5 +14,6 @@ program
 
 program.addCommand(provisionCommand);
 program.addCommand(statusCommand);
+program.addCommand(switchCommand);
 
 program.parse(process.argv);

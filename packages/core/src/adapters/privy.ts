@@ -2,6 +2,7 @@ import {
   Connection,
   PublicKey,
   Transaction,
+  VersionedTransaction,
   LAMPORTS_PER_SOL,
   clusterApiUrl,
 } from '@solana/web3.js';
@@ -24,6 +25,14 @@ export class PrivyAdapter implements WalletAdapter {
   private appSecret: string;
   private walletId: string;
   private cachedAddress: string | null = null;
+  private network: string;
+
+  // CAIP-2 chain identifiers for Solana networks
+  private static readonly CAIP2: Record<string, string> = {
+    devnet: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1',
+    'mainnet-beta': 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
+    testnet: 'solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z',
+  };
 
   constructor(config?: {
     appId?: string;
@@ -33,6 +42,7 @@ export class PrivyAdapter implements WalletAdapter {
   }) {
     const network =
       config?.network || process.env.GLOSSO_NETWORK || 'devnet';
+    this.network = network;
     this.connection = new Connection(
       clusterApiUrl(network as 'devnet' | 'mainnet-beta' | 'testnet'),
       'confirmed'
@@ -65,6 +75,10 @@ export class PrivyAdapter implements WalletAdapter {
 
   private getAuthHeader(): string {
     return `Basic ${Buffer.from(`${this.appId}:${this.appSecret}`).toString('base64')}`;
+  }
+
+  private getCaip2(): string {
+    return PrivyAdapter.CAIP2[this.network] || PrivyAdapter.CAIP2['devnet'];
   }
 
   private async privyRequest(
@@ -111,7 +125,7 @@ export class PrivyAdapter implements WalletAdapter {
   }
 
   /**
-   * Sign a transaction via Privy's signing API.
+   * Sign a legacy transaction via Privy's signing API.
    */
   async sign(
     transaction: Transaction,
@@ -129,10 +143,10 @@ export class PrivyAdapter implements WalletAdapter {
       transaction.feePayer = new PublicKey(address);
     }
 
-    // Serialize the transaction for Privy to sign
-    const serialized = transaction
-      .serialize({ requireAllSignatures: false })
-      .toString('base64');
+    // Buffer.from() ensures proper base64 encoding (Uint8Array.toString ignores the encoding arg)
+    const serialized = Buffer.from(
+      transaction.serialize({ requireAllSignatures: false })
+    ).toString('base64');
 
     const result = await this.privyRequest(
       'POST',
@@ -146,9 +160,60 @@ export class PrivyAdapter implements WalletAdapter {
       }
     );
 
+    // Privy response can vary — handle all known shapes
+    const signedTxB64 =
+      result?.data?.signed_transaction ??
+      result?.data?.signedTransaction ??
+      result?.signed_transaction ??
+      result?.signedTransaction;
+
+    if (!signedTxB64) {
+      throw new Error(
+        `Privy signTransaction returned unexpected response: ${JSON.stringify(result).slice(0, 300)}`
+      );
+    }
+
     // Reconstruct the signed transaction
-    const signedBytes = Buffer.from(result.data.signedTransaction, 'base64');
+    const signedBytes = Buffer.from(signedTxB64, 'base64');
     return Transaction.from(signedBytes);
+  }
+
+  /**
+   * Sign a versioned transaction via Privy's signing API.
+   */
+  async signVersioned(
+    transaction: VersionedTransaction,
+    _index: number = 0
+  ): Promise<VersionedTransaction> {
+    // VersionedTransaction.serialize() returns Uint8Array — wrap in Buffer for base64
+    const serialized = Buffer.from(transaction.serialize()).toString('base64');
+
+    const result = await this.privyRequest(
+      'POST',
+      `/wallets/${this.walletId}/rpc`,
+      {
+        method: 'signTransaction',
+        params: {
+          encoding: 'base64',
+          transaction: serialized,
+        },
+      }
+    );
+
+    const signedTxB64 =
+      result?.data?.signed_transaction ??
+      result?.data?.signedTransaction ??
+      result?.signed_transaction ??
+      result?.signedTransaction;
+
+    if (!signedTxB64) {
+      throw new Error(
+        `Privy signTransaction returned unexpected response: ${JSON.stringify(result).slice(0, 300)}`
+      );
+    }
+
+    const signedBytes = Buffer.from(signedTxB64, 'base64');
+    return VersionedTransaction.deserialize(signedBytes);
   }
 
   async send(
@@ -167,7 +232,7 @@ export class PrivyAdapter implements WalletAdapter {
       `/wallets/${this.walletId}/rpc`,
       {
         method: 'signAndSendTransaction',
-        caip2: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1',
+        caip2: this.getCaip2(),
         params: {
           encoding: 'base64',
           transaction: this.buildTransferBase64(address, to, lamports, blockhash),

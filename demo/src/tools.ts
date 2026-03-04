@@ -10,12 +10,11 @@
  *   6. get_position         — Check current Drift perp position
  *
  * All transactions are real on-chain devnet transactions signed
- * autonomously by the Glosso wallet.
+ * autonomously by the Glosso wallet — mode-agnostic (sovereign/turnkey/privy).
  */
 
 import {
   Connection,
-  Keypair,
   PublicKey,
   clusterApiUrl,
   LAMPORTS_PER_SOL,
@@ -23,7 +22,6 @@ import {
 import {
   DriftClient,
   initialize as driftInitialize,
-  Wallet as DriftWallet,
   BN,
   BASE_PRECISION,
   QUOTE_PRECISION,
@@ -35,29 +33,15 @@ import {
   PerpMarkets,
   getMarketsAndOraclesForSubscription,
 } from '@drift-labs/sdk';
-import { decrypt } from '@glosso/core';
+import { GlossoWallet } from '@glosso/core';
 
-// ── Glosso → Drift Wallet Bridge ──────────────────────────
+// ── Glosso Wallet (singleton — mode-agnostic) ─────────────
 
-function getGlossoKeypair(): Keypair {
-  const encryptedSeed = process.env.GLOSSO_MASTER_SEED_ENCRYPTED;
-  const passphrase = process.env.GLOSSO_ENCRYPTION_PASSPHRASE;
+let _glossoWallet: GlossoWallet | null = null;
 
-  if (!encryptedSeed || !passphrase) {
-    throw new Error(
-      'Wallet not provisioned. GLOSSO_MASTER_SEED_ENCRYPTED and GLOSSO_ENCRYPTION_PASSPHRASE must be set.'
-    );
-  }
-
-  const mnemonic = decrypt(encryptedSeed, passphrase);
-
-  // Derive keypair using the same logic as SovereignAdapter
-  const { derivePath } = require('ed25519-hd-key');
-  const bip39 = require('bip39');
-  const seed = bip39.mnemonicToSeedSync(mnemonic);
-  const path = `m/44'/501'/0'/0'`;
-  const derived = derivePath(path, seed.toString('hex'));
-  return Keypair.fromSeed(derived.key);
+function getGlossoWallet(): GlossoWallet {
+  if (!_glossoWallet) _glossoWallet = new GlossoWallet();
+  return _glossoWallet;
 }
 
 function getConnection(): Connection {
@@ -68,7 +52,8 @@ function getConnection(): Connection {
   );
 }
 
-// Cache drift client across calls within a session
+// ── Drift Client (cached) ─────────────────────────────────
+
 let _driftClient: DriftClient | null = null;
 let _driftSubscribed = false;
 
@@ -79,8 +64,8 @@ async function getDriftClient(): Promise<DriftClient> {
   const sdkConfig = driftInitialize({ env });
 
   const connection = getConnection();
-  const keypair = getGlossoKeypair();
-  const wallet = new DriftWallet(keypair as any);
+  const wallet = getGlossoWallet();
+  const driftWallet = await wallet.toDriftWallet();
 
   const bulkAccountLoader = new BulkAccountLoader(
     connection as any,
@@ -93,7 +78,7 @@ async function getDriftClient(): Promise<DriftClient> {
 
   _driftClient = new DriftClient({
     connection: connection as any,
-    wallet,
+    wallet: driftWallet as any,
     programID: new PublicKey(sdkConfig.DRIFT_PROGRAM_ID),
     accountSubscription: {
       type: 'polling',
@@ -161,12 +146,13 @@ export interface BalanceResult {
 }
 
 export async function get_balance(): Promise<BalanceResult> {
-  const keypair = getGlossoKeypair();
+  const wallet = getGlossoWallet();
+  const address = await wallet.getAddress();
   const connection = getConnection();
-  const balance = await connection.getBalance(keypair.publicKey);
+  const balance = await connection.getBalance(new PublicKey(address));
 
   return {
-    address: keypair.publicKey.toBase58(),
+    address,
     sol: balance / LAMPORTS_PER_SOL,
     network: process.env.GLOSSO_NETWORK || 'devnet',
   };
@@ -205,10 +191,11 @@ export async function deposit_collateral(
       SOL_SPOT_MARKET_INDEX
     );
     const sigStr = String(txSig);
+    const cluster = process.env.GLOSSO_NETWORK || 'devnet';
     return {
       depositedSol: amountSol,
       signature: sigStr,
-      explorer: `https://explorer.solana.com/tx/${sigStr}?cluster=devnet`,
+      explorer: `https://explorer.solana.com/tx/${sigStr}?cluster=${cluster}`,
     };
   }
 
@@ -219,11 +206,12 @@ export async function deposit_collateral(
     driftClient.wallet.publicKey
   );
   const sigStr = String(sig);
+  const cluster = process.env.GLOSSO_NETWORK || 'devnet';
 
   return {
     depositedSol: amountSol,
     signature: sigStr,
-    explorer: `https://explorer.solana.com/tx/${sigStr}?cluster=devnet`,
+    explorer: `https://explorer.solana.com/tx/${sigStr}?cluster=${cluster}`,
   };
 }
 
@@ -266,12 +254,14 @@ export async function open_perp_position(
   const sig = await driftClient.placePerpOrder(orderParams);
   const sigStr = String(sig);
 
+  const cluster = process.env.GLOSSO_NETWORK || 'devnet';
+
   return {
     direction,
     sizeSol,
     marketIndex: solPerp.marketIndex,
     signature: sigStr,
-    explorer: `https://explorer.solana.com/tx/${sigStr}?cluster=devnet`,
+    explorer: `https://explorer.solana.com/tx/${sigStr}?cluster=${cluster}`,
   };
 }
 
@@ -295,10 +285,12 @@ export async function close_perp_position(): Promise<CloseResult> {
   const sig = await driftClient.closePosition(solPerp.marketIndex);
   const sigStr = String(sig);
 
+  const cluster = process.env.GLOSSO_NETWORK || 'devnet';
+
   return {
     closedMarketIndex: solPerp.marketIndex,
     signature: sigStr,
-    explorer: `https://explorer.solana.com/tx/${sigStr}?cluster=devnet`,
+    explorer: `https://explorer.solana.com/tx/${sigStr}?cluster=${cluster}`,
   };
 }
 

@@ -1,4 +1,12 @@
-import { Transaction } from '@solana/web3.js';
+import { Transaction, VersionedTransaction } from '@solana/web3.js';
+
+/** Union type for both legacy and versioned transactions. */
+export type AnyTransaction = Transaction | VersionedTransaction;
+
+/** Type guard: returns true if the transaction is a VersionedTransaction. */
+export function isVersionedTx(tx: AnyTransaction): tx is VersionedTransaction {
+  return 'version' in tx;
+}
 
 /**
  * The universal wallet adapter interface.
@@ -20,10 +28,16 @@ export interface WalletAdapter {
   getBalance(index?: number): Promise<number>;
 
   /**
-   * Sign a transaction with the keypair at the given index.
+   * Sign a legacy transaction with the keypair at the given index.
    * Returns the signed transaction — does NOT broadcast it.
    */
   sign(transaction: Transaction, index?: number): Promise<Transaction>;
+
+  /**
+   * Sign a versioned transaction with the keypair at the given index.
+   * Returns the signed transaction — does NOT broadcast it.
+   */
+  signVersioned(transaction: VersionedTransaction, index?: number): Promise<VersionedTransaction>;
 
   /**
    * Build, sign, and broadcast a SOL transfer.

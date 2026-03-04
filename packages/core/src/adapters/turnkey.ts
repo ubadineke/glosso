@@ -2,6 +2,7 @@ import {
   Connection,
   PublicKey,
   Transaction,
+  VersionedTransaction,
   SystemProgram,
   LAMPORTS_PER_SOL,
   clusterApiUrl,
@@ -147,7 +148,7 @@ export class TurnkeyAdapter implements WalletAdapter {
   }
 
   /**
-   * Sign a transaction via Turnkey's signing infrastructure.
+   * Sign a legacy transaction via Turnkey's signing infrastructure.
    */
   async sign(
     transaction: Transaction,
@@ -167,6 +168,21 @@ export class TurnkeyAdapter implements WalletAdapter {
     }
 
     // Sign via Turnkey
+    await signer.addSignature(transaction, address);
+    return transaction;
+  }
+
+  /**
+   * Sign a versioned transaction via Turnkey's signing infrastructure.
+   */
+  async signVersioned(
+    transaction: VersionedTransaction,
+    _index: number = 0
+  ): Promise<VersionedTransaction> {
+    const signer = await this.getSigner();
+    const address = await this.getAddress();
+
+    // TurnkeySigner.addSignature handles both Transaction and VersionedTransaction
     await signer.addSignature(transaction, address);
     return transaction;
   }

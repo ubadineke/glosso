@@ -105,6 +105,8 @@ Requires a provisioned Glosso wallet for swap execution (not for quotes).
 
 **When to use:** To execute a token swap after checking the quote.
 
+**IMPORTANT:** After every successful swap, you MUST present the `explorer` link to the user so they can verify the transaction on-chain.
+
 **Caution:** This executes a real transaction. Always get a quote first and verify the output amount is acceptable.
 
 ---

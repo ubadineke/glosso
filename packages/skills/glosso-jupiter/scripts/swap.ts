@@ -227,7 +227,7 @@ async function mainnetSwap(
   return {
     ...quote,
     signature,
-    explorer: `https://explorer.solana.com/tx/${signature}`,
+    explorer: `https://explorer.solana.com/tx/${signature}?cluster=mainnet-beta`,
   };
 }
 
@@ -302,7 +302,7 @@ async function devnetSwap(
   return {
     ...quote,
     signature,
-    explorer: `https://explorer.solana.com/tx/${signature}?cluster=devnet`,
+    explorer: `https://explorer.solana.com/tx/${signature}?cluster=${quote.network}`,
   };
 }
 

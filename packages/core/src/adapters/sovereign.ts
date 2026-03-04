@@ -3,6 +3,7 @@ import {
   Keypair,
   PublicKey,
   Transaction,
+  VersionedTransaction,
   SystemProgram,
   sendAndConfirmTransaction,
   LAMPORTS_PER_SOL,
@@ -101,6 +102,15 @@ export class SovereignAdapter implements WalletAdapter {
     }
 
     transaction.partialSign(keypair);
+    return transaction;
+  }
+
+  async signVersioned(
+    transaction: VersionedTransaction,
+    index: number = 0
+  ): Promise<VersionedTransaction> {
+    const keypair = this.getKeypair(index);
+    transaction.sign([keypair]);
     return transaction;
   }
 

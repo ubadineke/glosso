@@ -97,6 +97,8 @@ Run `setup.sh` to provision automatically.
 
 **When to use:** To transfer SOL to another wallet. To pay for services. To fund sub-wallets.
 
+**IMPORTANT:** After every successful send, you MUST present the `explorer` link to the user so they can verify the transaction on-chain.
+
 **Caution:** This sends real funds. Always verify the amount and recipient before calling.
 
 ---
