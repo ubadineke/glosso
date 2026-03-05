@@ -11,6 +11,11 @@ import {
 export const statusCommand = new Command('status')
   .description('Show Glosso wallet status and balances')
   .option('-d, --dir <path>', 'Directory containing .env file', '.')
+  .addHelpText('after', `
+Examples:
+  glosso status                        # reads .env in current directory
+  glosso status --dir ./demo
+`)
   .action(async (options) => {
     try {
       await runStatus(options);

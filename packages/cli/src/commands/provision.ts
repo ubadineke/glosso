@@ -26,6 +26,13 @@ export const provisionCommand = new Command('provision')
   .option('-n, --network <network>', 'Solana network: devnet, testnet, mainnet-beta', 'devnet')
   .option('--passphrase <passphrase>', 'Encryption passphrase (auto-generated if omitted)')
   .option('--sub-wallets <count>', 'Number of sub-wallets to derive', '3')
+  .addHelpText('after', `
+Examples:
+  glosso provision                                         # sovereign, devnet, current dir
+  glosso provision --mode privy --network mainnet-beta
+  glosso provision --mode turnkey --agent my-trader --dir ./demo
+  glosso provision --mode sovereign --passphrase "my-strong-pass" --sub-wallets 5
+`)
   .action(async (options) => {
     try {
       await runProvision(options);

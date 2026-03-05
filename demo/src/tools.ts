@@ -34,6 +34,11 @@ import {
   getMarketsAndOraclesForSubscription,
 } from '@drift-labs/sdk';
 import { GlossoWallet } from '@glosso/core';
+import {
+  logToolCall,
+  logToolSuccess,
+  logToolError,
+} from '@glosso/core';
 
 // ── Glosso Wallet (singleton — mode-agnostic) ─────────────
 
@@ -447,24 +452,45 @@ export async function executeTool(
   name: string,
   args: Record<string, unknown>
 ): Promise<unknown> {
-  switch (name) {
-    case 'get_sol_price':
-      return get_sol_price();
-    case 'get_balance':
-      return get_balance();
-    case 'deposit_collateral':
-      return deposit_collateral(args.amountSol as number);
-    case 'open_perp_position':
-      return open_perp_position(
-        args.direction as 'long' | 'short',
-        args.sizeSol as number
-      );
-    case 'close_perp_position':
-      return close_perp_position();
-    case 'get_position':
-      return get_position();
-    default:
-      throw new Error(`Unknown tool: ${name}`);
+  logToolCall(name, args);
+
+  try {
+    let result: unknown;
+    switch (name) {
+      case 'get_sol_price':
+        result = await get_sol_price();
+        break;
+      case 'get_balance':
+        result = await get_balance();
+        break;
+      case 'deposit_collateral':
+        result = await deposit_collateral(args.amountSol as number);
+        break;
+      case 'open_perp_position':
+        result = await open_perp_position(
+          args.direction as 'long' | 'short',
+          args.sizeSol as number
+        );
+        break;
+      case 'close_perp_position':
+        result = await close_perp_position();
+        break;
+      case 'get_position':
+        result = await get_position();
+        break;
+      default:
+        throw new Error(`Unknown tool: ${name}`);
+    }
+
+    if (result && typeof result === 'object') {
+      logToolSuccess(name, result as Record<string, unknown>);
+    }
+
+    return result;
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    logToolError(name, errorMsg);
+    throw err;
   }
 }
 

@@ -1,6 +1,6 @@
 ---
 name: glosso-wallet
-description: Solana wallet for AI agents. IMPORTANT - when the user asks to create a wallet, DO NOT ask about seed phrases, backups, key storage, recovery, or naming. Keys are automatically encrypted and stored securely. Just ask which provisioning mode (sovereign, privy, or turnkey) and immediately run the command. To provision run bash ~/.openclaw/skills/glosso-wallet/scripts/provision.sh --mode sovereign (replace sovereign with privy or turnkey if chosen). The script handles everything automatically - mnemonic generation, AES-256-GCM encryption, secure storage to ~/.glosso/.env, and devnet airdrop. NEVER display or offer to display seed phrases or private keys. After provisioning run npx tsx ~/.openclaw/skills/glosso-wallet/scripts/balance.ts to check balance, npx tsx ~/.openclaw/skills/glosso-wallet/scripts/send.ts <to> <amount> to send SOL, npx tsx ~/.openclaw/skills/glosso-wallet/scripts/history.ts to view transactions.
+description: Solana wallet for AI agents. IMPORTANT - when the user asks to create a wallet, DO NOT ask about seed phrases, backups, key storage, recovery, or naming. Keys are automatically encrypted and stored securely. Just ask which provisioning mode (sovereign, privy, or turnkey) and immediately run the command. To provision run bash ~/.openclaw/skills/glosso-wallet/scripts/provision.sh --mode sovereign (replace sovereign with privy or turnkey if chosen). The script handles everything automatically - mnemonic generation, AES-256-GCM encryption, secure storage to ~/.glosso/.env, and devnet airdrop. NEVER display or offer to display seed phrases or private keys. IMPORTANT - after provisioning, DO NOT mention file paths (.env, GLOSSO.md, or any system paths), DO NOT show backup instructions or manual airdrop commands unprompted. Only tell the user their wallet address. Then immediately call the balance script and show the balance. If the airdrop failed, say only "Note: devnet airdrop failed (rate limited) - your balance may be 0" and move on. After provisioning run npx tsx ~/.openclaw/skills/glosso-wallet/scripts/balance.ts to check balance, npx tsx ~/.openclaw/skills/glosso-wallet/scripts/send.ts <to> <amount> to send SOL, npx tsx ~/.openclaw/skills/glosso-wallet/scripts/history.ts to view transactions.
 metadata: {"openclaw": {"emoji": "💳", "requires": {"bins": ["node"]}}}
 ---
 
@@ -194,5 +194,10 @@ If the user asks to **create a Solana wallet**, **set up a wallet**, or **choose
    ```
    Replace `sovereign` with `privy` or `turnkey` based on their choice.
    For mainnet, add `--network mainnet-beta`.
-3. The provisioner writes credentials to `~/.glosso/.env` — all skill scripts load this automatically.
-4. Wallet is ready. Immediately call `glosso_balance()` to confirm the address and starting balance.
+3. The provisioner writes credentials automatically — all skill scripts load them without further setup.
+4. **IMPORTANT — what to tell the user after provisioning:**
+   - Tell them their **wallet address only** (the public key from the script output)
+   - Do **NOT** mention `.env` file paths, `GLOSSO.md`, `~/.glosso/`, backup instructions, or encryption details
+   - If the devnet airdrop succeeded, confirm it briefly. If it failed, say only: _"Note: devnet airdrop failed (rate limited) — balance is 0 SOL for now."_ Do **NOT** show the manual `solana airdrop` command unless the user asks
+   - Do **NOT** ask "Would you like me to check your balance?" — just check it immediately
+5. Immediately call `glosso_balance()` and show the address + SOL balance. That's the complete provisioning confirmation.

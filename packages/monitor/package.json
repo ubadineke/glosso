@@ -1,0 +1,26 @@
+{
+  "name": "@glosso/monitor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Glosso live activity monitor — TUI dashboard",
+  "main": "./src/index.tsx",
+  "bin": {
+    "glosso-monitor": "./src/index.tsx"
+  },
+  "scripts": {
+    "start": "tsx src/index.tsx",
+    "dev": "tsx watch src/index.tsx"
+  },
+  "dependencies": {
+    "@glosso/core": "workspace:*",
+    "ink": "^4.4.1",
+    "ink-spinner": "^5.0.0",
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  }
+}

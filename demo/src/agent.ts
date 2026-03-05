@@ -23,6 +23,12 @@ import { homedir } from 'os';
 import path from 'path';
 import OpenAI from 'openai';
 import { TOOL_DEFINITIONS, executeTool } from './tools';
+import {
+  logAgentStart,
+  logAgentRound,
+  logAgentThinking,
+  logAgentEnd,
+} from '@glosso/core';
 
 // ── Load .env files (priority order) ──────────────────────
 // 1. demo/.env          (local dev — project env)
@@ -120,6 +126,8 @@ async function runAgentRound(
     `\n${'═'.repeat(60)}\n  🤖 ROUND ${roundNumber}/${MAX_ROUNDS}  —  ${new Date().toLocaleTimeString()}\n${'═'.repeat(60)}\n`
   );
 
+  logAgentRound(roundNumber, MAX_ROUNDS);
+
   // Add the user prompt for this round
   conversationHistory.push({
     role: 'user',
@@ -149,8 +157,14 @@ async function runAgentRound(
     if (!message.tool_calls || message.tool_calls.length === 0) {
       if (message.content) {
         console.log(`\n💬 Agent:\n${message.content}\n`);
+        logAgentThinking(message.content);
       }
       break;
+    }
+
+    // If the agent has reasoning text AND tool calls, log the reasoning
+    if (message.content) {
+      logAgentThinking(message.content);
     }
 
     // Process each tool call
@@ -214,6 +228,14 @@ async function main(): Promise<void> {
 ╚══════════════════════════════════════════════════════════╝
   `);
 
+  logAgentStart({
+    mode: process.env.GLOSSO_MODE || 'sovereign',
+    address: process.env.GLOSSO_PRIMARY_ADDRESS,
+    network: process.env.GLOSSO_NETWORK || 'devnet',
+    model: MODEL,
+    maxRounds: MAX_ROUNDS,
+  });
+
   // Initialize conversation with system prompt
   const conversationHistory: OpenAI.Chat.Completions.ChatCompletionMessageParam[] =
     [
@@ -249,6 +271,8 @@ async function main(): Promise<void> {
 ║     ✅ Agent session complete — ${MAX_ROUNDS} rounds finished          ║
 ╚══════════════════════════════════════════════════════════╝
   `);
+
+  logAgentEnd(MAX_ROUNDS);
 }
 
 function sleep(ms: number): Promise<void> {

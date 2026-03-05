@@ -9,3 +9,24 @@ export { isVersionedTx } from './adapters/interface';
 export { generateMnemonic, deriveKeypair, deriveAddress, validateMnemonic } from './utils/derive';
 export { encrypt, decrypt } from './utils/encrypt';
 export { requestAirdrop } from './utils/airdrop';
+
+// Activity logger
+export {
+  logEvent,
+  logAgentStart,
+  logAgentRound,
+  logAgentThinking,
+  logAgentEnd,
+  logToolCall,
+  logToolSuccess,
+  logToolError,
+  logPriceCheck,
+  logBalanceCheck,
+  readLogEntries,
+  listSessions,
+  getLogPath,
+  setLogPath,
+  getSessionId,
+  setSessionId,
+} from './utils/logger';
+export type { ActivityEvent, ActivityEventType, LogEntry } from './utils/logger';

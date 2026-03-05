@@ -1,0 +1,1590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glosso — Agentic Wallet Infrastructure for Solana</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0a0f;
+    --bg-card: #10111a;
+    --bg-card-hover: #171825;
+    --primary: #14b8a6;
+    --primary-dim: #0d9488;
+    --primary-glow: rgba(20, 184, 166, 0.25);
+    --primary-soft: rgba(20, 184, 166, 0.08);
+    --primary-light: #2dd4bf;
+    --blue: #60a5fa;
+    --green: #34d399;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --pink: #f472b6;
+    --cyan: #22d3ee;
+    --orange: #fb923c;
+    --text: #f0f0f5;
+    --text-dim: #a1a1b5;
+    --text-muted: #6b6b80;
+    --border: #1e1e2e;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, sans-serif;
+    overflow: hidden;
+    cursor: default;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── SLIDE SYSTEM ── */
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 80px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    transform: translateX(30px);
+  }
+  .slide.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(0);
+  }
+  .slide.exit-left {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+
+  /* ── TYPOGRAPHY ── */
+  h1 { font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; }
+  h2 { font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+  h3 { font-weight: 600; letter-spacing: -0.01em; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .text-primary { color: var(--primary); }
+  .text-primary-light { color: var(--primary-light); }
+  .text-dim { color: var(--text-dim); }
+  .text-muted { color: var(--text-muted); }
+  .text-green { color: var(--green); }
+  .text-blue { color: var(--blue); }
+  .text-amber { color: var(--amber); }
+  .text-pink { color: var(--pink); }
+  .text-cyan { color: var(--cyan); }
+  .text-orange { color: var(--orange); }
+
+  .glow-text {
+    text-shadow: 0 0 40px var(--primary-glow), 0 0 80px rgba(20, 184, 166, 0.1);
+  }
+
+  /* ── REUSABLE ── */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 28px;
+    border-radius: 100px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text);
+    transition: all 0.3s;
+  }
+  .pill:hover {
+    border-color: var(--primary);
+    box-shadow: 0 0 20px var(--primary-glow);
+  }
+  .pill .dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 32px;
+    transition: all 0.3s;
+  }
+  .card:hover {
+    border-color: rgba(20, 184, 166, 0.3);
+    box-shadow: 0 4px 30px var(--primary-glow);
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 6px 20px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* ── NAV ── */
+  .nav {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 100;
+    padding: 8px 16px;
+    background: rgba(16, 17, 26, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+  }
+  .nav-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .nav-dot.active {
+    background: var(--primary);
+    box-shadow: 0 0 8px var(--primary-glow);
+    width: 24px;
+    border-radius: 4px;
+  }
+  .nav-counter {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-left: 12px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── KEYBOARD HINT ── */
+  .key-hint {
+    position: fixed;
+    bottom: 28px;
+    right: 40px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    z-index: 100;
+    opacity: 0.5;
+  }
+  .key-hint kbd {
+    display: inline-block;
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-card);
+    margin: 0 2px;
+    font-size: 11px;
+  }
+
+  /* ── ANIMATED UNDERLINE ── */
+  .underline-glow {
+    position: relative;
+    display: inline-block;
+  }
+  .underline-glow::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary), var(--primary-light));
+    border-radius: 2px;
+    box-shadow: 0 0 12px var(--primary-glow);
+  }
+
+  /* ── BACKGROUND EFFECTS ── */
+  .bg-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(20, 184, 166, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(20, 184, 166, 0.025) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+  }
+  .bg-radial {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 60% 50% at 50% 50%, rgba(20, 184, 166, 0.05) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .bg-corner-glow {
+    position: absolute;
+    width: 500px; height: 500px;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.12;
+    pointer-events: none;
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  @keyframes glow-pulse {
+    0%, 100% { box-shadow: 0 0 20px var(--primary-glow); }
+    50% { box-shadow: 0 0 40px var(--primary-glow), 0 0 60px rgba(20,184,166, 0.1); }
+  }
+
+  .slide.active .anim-1 { animation: fadeUp 0.6s 0.1s both; }
+  .slide.active .anim-2 { animation: fadeUp 0.6s 0.2s both; }
+  .slide.active .anim-3 { animation: fadeUp 0.6s 0.35s both; }
+  .slide.active .anim-4 { animation: fadeUp 0.6s 0.5s both; }
+  .slide.active .anim-5 { animation: fadeUp 0.6s 0.65s both; }
+  .slide.active .anim-6 { animation: fadeUp 0.6s 0.8s both; }
+  .slide.active .anim-7 { animation: fadeUp 0.6s 0.95s both; }
+
+  /* ── DIAGRAM COMPONENTS ── */
+  .flow-arrow {
+    color: var(--primary);
+    font-size: 28px;
+    line-height: 1;
+    animation: pulse 2s infinite;
+  }
+
+  .node-box {
+    padding: 18px 28px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    font-weight: 600;
+    font-size: 17px;
+    text-align: center;
+    min-width: 150px;
+    transition: all 0.3s;
+  }
+  .node-box:hover {
+    border-color: var(--primary);
+    box-shadow: 0 0 20px var(--primary-glow);
+  }
+  .node-box.accent {
+    border-color: var(--primary);
+    background: rgba(20, 184, 166, 0.08);
+  }
+  .node-box.green { border-color: var(--green); background: rgba(52, 211, 153, 0.08); }
+  .node-box.blue { border-color: var(--blue); background: rgba(96, 165, 250, 0.08); }
+  .node-box.amber { border-color: var(--amber); background: rgba(251, 191, 36, 0.08); }
+  .node-box.pink { border-color: var(--pink); background: rgba(244, 114, 182, 0.08); }
+  .node-box.cyan { border-color: var(--cyan); background: rgba(34, 211, 238, 0.08); }
+  .node-box.orange { border-color: var(--orange); background: rgba(251, 146, 60, 0.08); }
+
+  /* ── LAYOUTS ── */
+  .title-glosso {
+    font-size: 112px;
+    background: linear-gradient(135deg, #fff 30%, var(--primary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .stat-row { display: flex; gap: 60px; align-items: flex-start; }
+  .stat-block { text-align: center; }
+  .stat-number { font-size: 88px; font-weight: 900; letter-spacing: -0.04em; line-height: 1; }
+  .stat-label { font-size: 20px; color: var(--text-dim); margin-top: 10px; font-weight: 500; }
+
+  .arch-connector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 10px 0;
+    color: var(--text-muted);
+    font-size: 24px;
+  }
+  .arch-label {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+  .arch-layer {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .feature-grid { display: grid; gap: 20px; }
+  .feature-grid-2 { grid-template-columns: 1fr 1fr; }
+  .feature-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .feature-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    transition: all 0.3s;
+  }
+  .feature-card:hover {
+    border-color: rgba(20, 184, 166, 0.3);
+    box-shadow: 0 4px 30px var(--primary-glow);
+    transform: translateY(-2px);
+  }
+  .feature-icon {
+    width: 52px; height: 52px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+  }
+  .feature-title { font-size: 22px; font-weight: 700; }
+  .feature-desc { font-size: 17px; color: var(--text-dim); line-height: 1.55; }
+
+  .track-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 22px;
+    border-radius: 10px;
+    font-size: 17px;
+    font-weight: 600;
+    border: 1px solid;
+  }
+
+  .code-block {
+    background: #08080d;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--text-dim);
+    text-align: left;
+    overflow: hidden;
+  }
+  .code-keyword { color: var(--primary); }
+  .code-string { color: var(--green); }
+  .code-comment { color: var(--text-muted); font-style: italic; }
+  .code-fn { color: var(--blue); }
+  .code-type { color: var(--cyan); }
+</style>
+</head>
+<body>
+
+<!-- ====== SLIDE 1: TITLE ====== -->
+<div class="slide active" id="slide-0">
+  <div class="bg-grid"></div>
+  <div class="bg-radial"></div>
+  <div class="bg-corner-glow" style="top: -200px; right: -200px; background: var(--primary);"></div>
+  <div class="bg-corner-glow" style="bottom: -200px; left: -100px; background: #0d9488; opacity: 0.08;"></div>
+
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 24px; text-align: center;">
+    <div class="anim-1" style="margin-bottom: 8px;">
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+        <rect width="64" height="64" rx="16" fill="url(#logo-grad)"/>
+        <circle cx="32" cy="26" r="8" stroke="#fff" stroke-width="2.5" fill="none"/>
+        <path d="M20 46c0-6.627 5.373-12 12-12s12 6.627 12 12" stroke="#fff" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+        <path d="M40 22l4-4M24 22l-4-4" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+        <defs><linearGradient id="logo-grad" x1="0" y1="0" x2="64" y2="64"><stop stop-color="#14b8a6"/><stop offset="1" stop-color="#0d9488"/></linearGradient></defs>
+      </svg>
+    </div>
+    <h1 class="title-glosso anim-2 glow-text">Glosso</h1>
+    <p class="anim-3" style="font-size: 28px; color: var(--text-dim); max-width: 720px; line-height: 1.5; font-weight: 400;">
+      Agentic wallet infrastructure for Solana — one interface, any key management system, real DeFi.
+    </p>
+    <div class="anim-4" style="display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; justify-content: center;">
+      <span class="track-badge" style="border-color: var(--primary); color: var(--primary-light); background: var(--primary-soft);">
+        <span>🔐</span> Wallet Infra
+      </span>
+      <span class="track-badge" style="border-color: var(--blue); color: var(--blue); background: rgba(96,165,250,0.08);">
+        <span>🤖</span> AI Agents
+      </span>
+      <span class="track-badge" style="border-color: var(--amber); color: var(--amber); background: rgba(251,191,36,0.08);">
+        <span>📈</span> DeFi Trading
+      </span>
+    </div>
+    <p class="anim-5 mono" style="font-size: 14px; color: var(--text-muted); margin-top: 12px;">
+      Superteam Nigeria &middot; DeFi Developer Challenge
+    </p>
+  </div>
+</div>
+
+
+<!-- ====== SLIDE 2: THE PROBLEM ====== -->
+<div class="slide" id="slide-1">
+  <div class="bg-grid"></div>
+  <div class="bg-corner-glow" style="top: -150px; left: -150px; background: var(--red); opacity: 0.1;"></div>
+
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 48px; text-align: center;">
+    <div class="anim-1">
+      <span class="badge" style="background: rgba(248,113,113,0.12); color: var(--red);">THE PROBLEM</span>
+    </div>
+    <h2 class="anim-2" style="font-size: 54px; max-width: 860px;">
+      AI agents can't hold <span class="text-primary underline-glow">wallets</span> properly
+    </h2>
+    <div class="stat-row anim-3">
+      <div class="stat-block">
+        <div class="stat-number text-primary">0</div>
+        <div class="stat-label">standard agent wallet SDK</div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-number" style="color: var(--red);">🔓</div>
+        <div class="stat-label">raw keys exposed in config</div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-number text-primary">1:1</div>
+        <div class="stat-label">hard-coupled to providers</div>
+      </div>
+    </div>
+    <div class="anim-4" style="display: flex; gap: 24px; font-size: 18px; color: var(--text-dim); align-items: center;">
+      <span style="padding: 12px 24px; border-radius: 10px; background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.2);">Raw private keys</span>
+      <span style="color: var(--text-muted); font-size: 22px;">→</span>
+      <span style="padding: 12px 24px; border-radius: 10px; background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.2);">Locked to one provider</span>
+      <span style="color: var(--text-muted); font-size: 22px;">→</span>
+      <span style="padding: 12px 24px; border-radius: 10px; background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.2);">Every protocol = rewrite</span>
+    </div>
+    <p class="anim-5" style="font-size: 22px; color: var(--text-dim); max-width: 720px; line-height: 1.6;">
+      Building an AI agent on Solana today means managing keys yourself, choosing one wallet provider, and rewriting everything when you switch — <strong style="color: var(--text);">agents deserve better infrastructure.</strong>
+    </p>
+  </div>
+</div>
+
+
+<!-- ====== SLIDE 3: THE SOLUTION ====== -->
+<div class="slide" id="slide-2">
+  <div class="bg-grid"></div>
+  <div class="bg-radial"></div>
+
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 40px; text-align: center; width: 100%; max-width: 1000px;">
+    <div class="anim-1">
+      <span class="badge" style="background: var(--primary-soft); color: var(--primary-light);">THE SOLUTION</span>
+    </div>
+    <h2 class="anim-2" style="font-size: 52px;">One wallet interface.<br>Three key management systems.</h2>
+
+    <div class="anim-3 card" style="text-align: left; width: 100%; max-width: 800px;">
+      <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 22px;">
+        <div style="width: 52px; height: 52px; border-radius: 14px; background: linear-gradient(135deg, var(--primary), var(--primary-dim)); display: flex; align-items: center; justify-content: center; font-size: 24px;">🔀</div>
+        <div>
+          <div style="font-size: 14px; font-weight: 600; color: var(--primary); letter-spacing: 0.05em; text-transform: uppercase;">Core</div>
+          <div style="font-size: 28px; font-weight: 700;">GlossoWallet</div>
+        </div>
+      </div>
+      <p style="font-size: 20px; color: var(--text-dim); line-height: 1.7;">
+        A <strong style="color: var(--text);">unified wallet interface</strong> that exposes the same four methods — <span class="mono" style="font-size: 16px; color: var(--primary-light);">getAddress</span>, <span class="mono" style="font-size: 16px; color: var(--primary-light);">getBalance</span>, <span class="mono" style="font-size: 16px; color: var(--primary-light);">sign</span>, <span class="mono" style="font-size: 16px; color: var(--primary-light);">send</span> — regardless of how keys are stored or managed. Write your agent once, swap the key management system with a single config change. <strong style="color: var(--text);">Your agent code never changes.</strong>
+      </p>
+    </div>
+
+    <div class="anim-4" style="display: flex; gap: 20px; flex-wrap: wrap; justify-content: center;">
+      <div class="pill"><span class="dot" style="background: var(--green);"></span> Sovereign — local encrypted keys</div>
+      <div class="pill"><span class="dot" style="background: var(--blue);"></span> Privy — secure server enclaves</div>
+      <div class="pill"><span class="dot" style="background: var(--amber);"></span> Turnkey — hardware security modules</div>
+    </div>
+
+    <div class="anim-5" style="display: flex; align-items: center; gap: 14px; color: var(--text-dim); font-size: 18px;">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--primary)" stroke-width="1.5"/><path d="M7 10l2 2 4-4" stroke="var(--primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Same interface, same agent code — different security guarantees
+    </div>
+  </div>
+</div>
+
+
+<!-- ====== SLIDE 4: ARCHITECTURE ====== -->
+<div class="slide" id="slide-3">
+  <div class="bg-grid"></div>
+
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 32px; width: 100%; max-width: 960px;">
+    <div class="anim-1">
+      <span class="badge" style="background: var(--primary-soft); color: var(--primary-light);">ARCHITECTURE</span>
+    </div>
+    <h2 class="anim-2" style="font-size: 44px;">The Adapter Pattern</h2>
+
+    <div class="anim-3" style="display: flex; flex-direction: column; align-items: center; gap: 0; width: 100%;">
+
+      <!-- Top: Agent code -->
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <div class="node-box accent" style="font-size: 18px; min-width: 280px;">
+          <div style="font-size: 24px; margin-bottom: 6px;">🤖</div>
+          Your Agent Code
+        </div>
+      </div>
+      <div class="arch-connector"><span>↓</span><span style="font-size: 14px; color: var(--text-muted);">wallet.getAddress() · wallet.sign() · wallet.send()</span></div>
+
+      <!-- Middle: GlossoWallet -->
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <div class="node-box accent" style="font-size: 18px; min-width: 300px; animation: glow-pulse 3s infinite;">
+          <div style="font-size: 24px; margin-bottom: 6px;">🔀</div>
+          GlossoWallet
+        </div>
+      </div>
+      <div class="arch-connector"><span>↓</span><span style="font-size: 14px; color: var(--text-muted);">WalletAdapter interface</span></div>
+
+      <!-- Bottom: Three adapters -->
+      <div style="display: flex; gap: 24px; align-items: center;">
+        <div class="node-box green" style="font-size: 16px; min-width: 180px;">
+          <div style="font-size: 26px; margin-bottom: 6px;">🔑</div>
+          Sovereign
+          <div style="font-size: 12px; color: var(--text-dim); font-weight: 400; margin-top: 2px;">Local encrypted keys</div>
+        </div>
+        <div class="node-box blue" style="font-size: 16px; min-width: 180px;">
+          <div style="font-size: 26px; margin-bottom: 6px;">🏦</div>
+          Privy
+          <div style="font-size: 12px; color: var(--text-dim); font-weight: 400; margin-top: 2px;">Secure enclaves</div>
+        </div>
+        <div class="node-box amber" style="font-size: 16px; min-width: 180px;">
+          <div style="font-size: 26px; margin-bottom: 6px;">🔒</div>
+          Turnkey
+          <div style="font-size: 12px; color: var(--text-dim); font-weight: 400; margin-top: 2px;">HSM infrastructure</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="anim-4" style="display: flex; gap: 40px; margin-top: 12px;">
+      <div style="display: flex; align-items: center; gap: 10px; font-size: 16px; color: var(--text-dim);">
+        <div style="width: 12px; height: 12px; border-radius: 3px; background: var(--primary);"></div>
+        Same 4 methods across every adapter
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; font-size: 16px; color: var(--text-dim);">
+        <div style="width: 12px; height: 12px; border-radius: 3px; background: var(--green);"></div>
+        Agent code remains identical
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ====== SLIDE 5: SOVEREIGN MODE ====== -->
+<div class="slide" id="slide-4">
+  <div class="bg-grid"></div>
+  <div class="bg-corner-glow" style="bottom: -200px; right: -200px; background: var(--green); opacity: 0.1;"></div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; width: 100%; max-width: 1060px;">
+    <!-- Left: info -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+      <div class="anim-1">
+        <span class="badge" style="background: rgba(52,211,153,0.12); color: var(--green);">ADAPTER 1</span>
+      </div>
+      <h2 class="anim-2" style="font-size: 46px;">Sovereign Mode</h2>
+      <p class="anim-3" style="font-size: 20px; color: var(--text-dim); line-height: 1.7;">
+        Full self-custody. Keys are generated locally, encrypted with <strong style="color: var(--text);">AES-256-GCM</strong>, and never leave the agent's environment. <strong style="color: var(--text);">No raw private key is ever stored in plaintext.</strong>
+      </p>
+      <div class="anim-4" style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(52,211,153,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">🔐</div>
+          <span style="font-size: 18px; color: var(--text-dim);">AES-256-GCM with PBKDF2 key derivation (100K iterations)</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(52,211,153,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">🌱</div>
+          <span style="font-size: 18px; color: var(--text-dim);">BIP39 mnemonic seed phrase generation</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(52,211,153,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">✍️</div>
+          <span style="font-size: 18px; color: var(--text-dim);">Decrypted only at sign-time — wiped from memory immediately</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(52,211,153,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">🛡️</div>
+          <span style="font-size: 18px; color: var(--text-dim);">Tamper detection via authentication tags</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: encryption flow -->
+    <div class="anim-5" style="position: relative;">
+      <div style="display: flex; flex-direction: column; gap: 0; align-items: center;">
+        <div class="node-box green" style="width: 280px;">
+          <div style="font-size: 22px; margin-bottom: 6px;">🌱</div>
+          BIP39 Mnemonic
+          <div style="font-size: 13px; color: var(--text-dim); font-weight: 400; margin-top: 4px;">12-word seed phrase</div>
+        </div>
+        <div class="arch-connector"><span style="color: var(--green);">↓</span><span style="font-size: 13px;">encrypt(passphrase)</span></div>
+        <div class="node-box" style="width: 280px; border-color: var(--amber);">
+          <div style="font-size: 22px; margin-bottom: 6px;">🔒</div>
+          Encrypted Blob
+          <div style="font-size: 12px; color: var(--text-dim); font-weight: 400; margin-top: 4px; font-family: 'JetBrains Mono', monospace;">salt + iv + authTag + cipher</div>
+        </div>
+        <div class="arch-connector"><span style="color: var(--text-muted);">↓</span><span style="font-size: 13px;">stored in config</span></div>
+        <div class="node-box" style="width: 280px;">
+          <div style="font-size: 22px; margin-bottom: 6px;">📝</div>
+          Encrypted Config
+          <div style="font-size: 12px; color: var(--green); font-weight: 400; margin-top: 4px;">safe to store ✓</div>
+        </div>
+        <div class="arch-connector"><span style="color: var(--text-muted);">↓</span><span style="font-size: 13px;">decrypt() at sign-time only</span></div>
+        <div class="node-box green" style="width: 280px;">
+          <div style="font-size: 22px; margin-bottom: 6px;">✍️</div>
+          Sign &amp; Wipe
+          <div style="font-size: 12px; color: var(--text-dim); font-weight: 400; margin-top: 4px;">key never persists in memory</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ====== SLIDE 6: SOVEREIGN — HD DERIVATION ====== -->
+<div class="slide" id="slide-5">
+  <div class="bg-grid"></div>
+  <div class="bg-corner-glow" style="top: -150px; left: -150px; background: var(--green); opacity: 0.08;"></div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; width: 100%; max-width: 1060px;">
+    <!-- Left: info -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+      <div class="anim-1">
+        <span class="badge" style="background: rgba(52,211,153,0.12); color: var(--green);">SOVEREIGN</span>
+      </div>
+      <h2 class="anim-2" style="font-size: 44px;">HD Wallet Derivation</h2>
+      <p class="anim-3" style="font-size: 20px; color: var(--text-dim); line-height: 1.7;">
+        A single encrypted seed generates an <strong style="color: var(--text);">infinite tree of purpose-specific wallets</strong> using BIP44 hierarchical deterministic derivation. Each sub-wallet is isolated — compromising one doesn't expose the others.
+      </p>
+      <div class="anim-4" style="display: flex; flex-direction: column; gap: 14px; font-size: 17px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="color: var(--green); font-size: 18px;">✓</span>
+          <span style="color: var(--text-dim);"><strong style="color: var(--text);">Index 0</strong> — Primary wallet (holds main funds)</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="color: var(--green); font-size: 18px;">✓</span>
+          <span style="color: var(--text-dim);"><strong style="color: var(--text);">Index 1</strong> — Trading wallet (DeFi operations)</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="color: var(--green); font-size: 18px;">✓</span>
+          <span style="color: var(--text-dim);"><strong style="color: var(--text);">Index 2</strong> — Vault wallet (long-term storage)</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="color: var(--green); font-size: 18px;">✓</span>
+          <span style="color: var(--text-dim);"><strong style="color: var(--text);">Index N</strong> — extensible for any purpose</span>
+        </div>
+      </div>
+      <div class="anim-5" style="padding: 14px 20px; border-radius: 10px; background: rgba(52,211,153,0.06); border: 1px solid rgba(52,211,153,0.15); font-family: 'JetBrains Mono', monospace; font-size: 15px; color: var(--green);">
+        m/44'/501'/index'/0'
+        <span style="font-family: 'Inter', sans-serif; font-size: 13px; color: var(--text-muted); margin-left: 12px;">Solana BIP44 path</span>
+      </div>
+    </div>
+
+    <!-- Right: tree diagram -->
+    <div class="anim-6" style="display: flex; flex-direction: column; align-items: center; gap: 0;">
+      <div class="node-box green" style="width: 260px;">
+        <div style="font-size: 22px; margin-bottom: 6px;">🌱</div>
+        Master Seed
+        <div style="font-size: 12px; color: var(--text-dim); font-weight: 400; margin-top: 4px;">single encrypted mnemonic</div>
+      </div>
+      <div class="arch-connector"><span style="color: var(--green);">↓</span><span style="font-size: 13px;">BIP44 derivation</span></div>
+
+      <div style="display: flex; gap: 16px; align-items: flex-start;">
+        <!-- Branch 0 -->
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+          <div style="width: 2px; height: 16px; background: rgba(52,211,153,0.3);"></div>
+          <div class="node-box" style="min-width: 140px; font-size: 14px; padding: 14px 18px; border-color: rgba(52,211,153,0.3);">
+            <div style="font-size: 13px; color: var(--green); font-weight: 600;">Index 0</div>
+            Primary
+            <div style="font-size: 11px; color: var(--text-muted); font-weight: 400; margin-top: 2px; font-family: 'JetBrains Mono', monospace;">9w56...5sPT</div>
+          </div>
+        </div>
+        <!-- Branch 1 -->
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+          <div style="width: 2px; height: 16px; background: rgba(96,165,250,0.3);"></div>
+          <div class="node-box" style="min-width: 140px; font-size: 14px; padding: 14px 18px; border-color: rgba(96,165,250,0.3);">
+            <div style="font-size: 13px; color: var(--blue); font-weight: 600;">Index 1</div>
+            Trading
+            <div style="font-size: 11px; color: var(--text-muted); font-weight: 400; margin-top: 2px; font-family: 'JetBrains Mono', monospace;">A1MY...7X2Z</div>
+          </div>
+        </div>
+        <!-- Branch 2 -->
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+          <div style="width: 2px; height: 16px; background: rgba(251,191,36,0.3);"></div>
+          <div class="node-box" style="min-width: 140px; font-size: 14px; padding: 14px 18px; border-color: rgba(251,191,36,0.3);">
+            <div style="font-size: 13px; color: var(--amber); font-weight: 600;">Index 2</div>
+            Vault
+            <div style="font-size: 11px; color: var(--text-muted); font-weight: 400; margin-top: 2px; font-family: 'JetBrains Mono', monospace;">3ABv...DyY</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ====== SLIDE 7: PRIVY ADAPTER ====== -->
+<div class="slide" id="slide-6">
+  <div class="bg-grid"></div>
+  <div class="bg-corner-glow" style="top: -200px; right: -200px; background: var(--blue); opacity: 0.1;"></div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; width: 100%; max-width: 1060px;">
+    <!-- Left: info -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+      <div class="anim-1">
+        <span class="badge" style="background: rgba(96,165,250,0.12); color: var(--blue);">ADAPTER 2</span>
+      </div>
+      <h2 class="anim-2" style="font-size: 46px;">Privy Adapter</h2>
+      <p class="anim-3" style="font-size: 20px; color: var(--text-dim); line-height: 1.7;">
+        Keys live in <strong style="color: var(--text);">Privy's secure server enclaves</strong> — never extracted, never exposed. Signing happens remotely via authenticated API calls. Ideal for teams that want <strong style="color: var(--text);">managed custody without trusting a single machine</strong>.
+      </p>
+      <div class="anim-4" style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(96,165,250,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">🏦</div>
+          <span style="font-size: 18px; color: var(--text-dim);">Keys generated and stored inside Privy enclaves</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(96,165,250,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">🔏</div>
+          <span style="font-size: 18px; color: var(--text-dim);">Signing via server-side API — keys never leave the enclave</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(96,165,250,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">🔑</div>
+          <span style="font-size: 18px; color: var(--text-dim);">Authenticated with App ID + App Secret</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(96,165,250,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">⚡</div>
+          <span style="font-size: 18px; color: var(--text-dim);">Same WalletAdapter interface — zero agent code changes</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: flow diagram -->
+    <div class="anim-5" style="display: flex; flex-direction: column; align-items: center; gap: 0;">
+      <div class="node-box accent" style="width: 260px;">
+        <div style="font-size: 22px; margin-bottom: 6px;">🤖</div>
+        Agent
+        <div style="font-size: 12px; color: var(--text-dim); font-weight: 400; margin-top: 4px;">wallet.sign(tx)</div>
+      </div>
+      <div class="arch-connector"><span style="color: var(--blue);">↓</span><span style="font-size: 13px;">authenticated API call</span></div>
+      <div class="node-box blue" style="width: 260px; animation: glow-pulse 3s infinite;">
+        <div style="font-size: 22px; margin-bottom: 6px;">🏦</div>
+        Privy Enclave
+        <div style="font-size: 12px; color: var(--text-dim); font-weight: 400; margin-top: 4px;">key held securely · signs remotely</div>
+      </div>
+      <div class="arch-connector"><span style="color: var(--blue);">↓</span><span style="font-size: 13px;">signed transaction returned</span></div>
+      <div class="node-box" style="width: 260px;">
+        <div style="font-size: 22px; margin-bottom: 6px;">⛓️</div>
+        Solana Network
+        <div style="font-size: 12px; color: var(--text-dim); font-weight: 400; margin-top: 4px;">transaction broadcast</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ====== SLIDE 8: TURNKEY ADAPTER ====== -->
+<div class="slide" id="slide-7">
+  <div class="bg-grid"></div>
+  <div class="bg-corner-glow" style="bottom: -200px; left: -100px; background: var(--amber); opacity: 0.1;"></div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; width: 100%; max-width: 1060px;">
+    <!-- Left: flow diagram -->
+    <div class="anim-3" style="display: flex; flex-direction: column; align-items: center; gap: 0;">
+      <div class="node-box accent" style="width: 260px;">
+        <div style="font-size: 22px; margin-bottom: 6px;">🤖</div>
+        Agent
+        <div style="font-size: 12px; color: var(--text-dim); font-weight: 400; margin-top: 4px;">wallet.sign(tx)</div>
+      </div>
+      <div class="arch-connector"><span style="color: var(--amber);">↓</span><span style="font-size: 13px;">stamped API request</span></div>
+      <div class="node-box amber" style="width: 260px; animation: glow-pulse 3s infinite;">
+        <div style="font-size: 22px; margin-bottom: 6px;">🔒</div>
+        Turnkey HSM
+        <div style="font-size: 12px; color: var(--text-dim); font-weight: 400; margin-top: 4px;">hardware-backed key storage</div>
+      </div>
+      <div class="arch-connector"><span style="color: var(--amber);">↓</span><span style="font-size: 13px;">signed transaction returned</span></div>
+      <div class="node-box" style="width: 260px;">
+        <div style="font-size: 22px; margin-bottom: 6px;">⛓️</div>
+        Solana Network
+        <div style="font-size: 12px; color: var(--text-dim); font-weight: 400; margin-top: 4px;">transaction broadcast</div>
+      </div>
+    </div>
+
+    <!-- Right: info -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+      <div class="anim-1">
+        <span class="badge" style="background: rgba(251,191,36,0.12); color: var(--amber);">ADAPTER 3</span>
+      </div>
+      <h2 class="anim-2" style="font-size: 46px;">Turnkey Adapter</h2>
+      <p class="anim-4" style="font-size: 20px; color: var(--text-dim); line-height: 1.7;">
+        Enterprise-grade key management. Keys live in <strong style="color: var(--text);">hardware security modules (HSMs)</strong> — the same infrastructure banks and institutions use. Signing requires cryptographically stamped API requests.
+      </p>
+      <div class="anim-5" style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(251,191,36,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">🔒</div>
+          <span style="font-size: 18px; color: var(--text-dim);">Keys in tamper-proof hardware modules</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(251,191,36,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">📜</div>
+          <span style="font-size: 18px; color: var(--text-dim);">API key stamping for every signing request</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(251,191,36,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">🏢</div>
+          <span style="font-size: 18px; color: var(--text-dim);">Organization-scoped wallet management</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(251,191,36,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">⚡</div>
+          <span style="font-size: 18px; color: var(--text-dim);">Same WalletAdapter interface — zero code changes</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ====== SLIDE 9: CLI PROVISIONING ====== -->
+<div class="slide" id="slide-8">
+  <div class="bg-grid"></div>
+  <div class="bg-corner-glow" style="top: -150px; right: -200px; background: var(--cyan); opacity: 0.08;"></div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; width: 100%; max-width: 1060px;">
+    <!-- Left: terminal mock -->
+    <div class="anim-3">
+      <div class="card" style="padding: 0; overflow: hidden; border-color: rgba(34,211,238,0.2);">
+        <!-- Terminal header -->
+        <div style="padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; background: rgba(34,211,238,0.04);">
+          <div style="width: 12px; height: 12px; border-radius: 50%; background: #f87171;"></div>
+          <div style="width: 12px; height: 12px; border-radius: 50%; background: #fbbf24;"></div>
+          <div style="width: 12px; height: 12px; border-radius: 50%; background: #34d399;"></div>
+          <span style="margin-left: 12px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text-muted);">terminal</span>
+        </div>
+        <div style="padding: 20px 24px; font-family: 'JetBrains Mono', monospace; font-size: 14px; line-height: 2; color: var(--text-dim); min-height: 280px;">
+          <div><span style="color: var(--green);">$</span> <span style="color: var(--text);">npx glosso provision</span></div>
+          <div style="color: var(--text-muted);">  --mode sovereign</div>
+          <div style="color: var(--text-muted);">  --network devnet</div>
+          <div style="color: var(--text-muted);">  --sub-wallets 3</div>
+          <div style="margin-top: 8px;"><span style="color: var(--cyan);">✓</span> Generated BIP39 mnemonic</div>
+          <div><span style="color: var(--cyan);">✓</span> Encrypted with AES-256-GCM</div>
+          <div><span style="color: var(--cyan);">✓</span> Derived 3 sub-wallets</div>
+          <div><span style="color: var(--cyan);">✓</span> Auto-generated config files</div>
+          <div style="margin-top: 8px; color: var(--green);">
+            Primary: <span style="color: var(--text);">9w56...5sPT</span>
+          </div>
+          <div style="color: var(--amber);">
+            Trading: <span style="color: var(--text);">A1MY...7X2Z</span>
+          </div>
+          <div style="color: var(--primary-light);">
+            Vault: &nbsp;&nbsp;<span style="color: var(--text);">3ABv...DyY</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: info -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+      <div class="anim-1">
+        <span class="badge" style="background: rgba(34,211,238,0.12); color: var(--cyan);">CLI</span>
+      </div>
+      <h2 class="anim-2" style="font-size: 46px;">One-Command Setup</h2>
+      <p class="anim-4" style="font-size: 20px; color: var(--text-dim); line-height: 1.7;">
+        <span class="mono" style="color: var(--cyan); font-size: 17px;">npx glosso provision</span> handles everything — key generation, encryption, wallet derivation, and auto-generated config files. <strong style="color: var(--text);">Zero manual key management.</strong>
+      </p>
+      <div class="anim-5" style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(34,211,238,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">🔄</div>
+          <span style="font-size: 18px; color: var(--text-dim);">Supports all three provisioning modes</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(34,211,238,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">📄</div>
+          <span style="font-size: 18px; color: var(--text-dim);">Auto-generated config files + human-readable wallet summary</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(34,211,238,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">♻️</div>
+          <span style="font-size: 18px; color: var(--text-dim);">Preserves previous mode sections when switching</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ====== SLIDE 10: DRIFT PROTOCOL DEMO ====== -->
+<div class="slide" id="slide-9">
+  <div class="bg-grid"></div>
+  <div class="bg-corner-glow" style="top: -200px; left: -100px; background: var(--orange); opacity: 0.1;"></div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; width: 100%; max-width: 1060px;">
+    <!-- Left: info -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+      <div class="anim-1">
+        <span class="badge" style="background: rgba(251,146,60,0.12); color: var(--orange);">LIVE DEMO</span>
+      </div>
+      <h2 class="anim-2" style="font-size: 44px;">Drift Protocol<br>Trading Agent</h2>
+      <p class="anim-3" style="font-size: 19px; color: var(--text-dim); line-height: 1.7;">
+        A conversational AI agent that <strong style="color: var(--text);">actually trades</strong> on Drift — not mock transactions. Six real tools, real perpetual positions, real on-chain signatures.
+      </p>
+      <div class="anim-4" style="display: flex; flex-direction: column; gap: 14px; font-size: 17px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="color: var(--green); font-size: 18px;">✓</span>
+          <span style="color: var(--text-dim);"><strong style="color: var(--text);">get_sol_price</strong> — real-time from Drift oracle</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="color: var(--green); font-size: 18px;">✓</span>
+          <span style="color: var(--text-dim);"><strong style="color: var(--text);">deposit_collateral</strong> — SOL into Drift vault</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="color: var(--green); font-size: 18px;">✓</span>
+          <span style="color: var(--text-dim);"><strong style="color: var(--text);">open_perp_position</strong> — long/short with leverage</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="color: var(--green); font-size: 18px;">✓</span>
+          <span style="color: var(--text-dim);"><strong style="color: var(--text);">close_perp_position</strong> — full market close</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="color: var(--green); font-size: 18px;">✓</span>
+          <span style="color: var(--text-dim);"><strong style="color: var(--text);">get_position</strong> — P&L, entry price, margin</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: chat mock -->
+    <div class="anim-5" style="position: relative;">
+      <div class="card" style="padding: 0; overflow: hidden; border-color: rgba(251,146,60,0.2);">
+        <div style="padding: 14px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; background: rgba(251,146,60,0.04);">
+          <div style="width: 10px; height: 10px; border-radius: 50%; background: var(--green);"></div>
+          <span style="font-weight: 600; font-size: 16px;">Glosso Trading Agent</span>
+          <span style="margin-left: auto; font-size: 13px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">devnet</span>
+        </div>
+        <div style="padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; font-size: 15px; min-height: 320px;">
+          <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--blue), #3b82f6); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px;">👤</div>
+            <div style="background: rgba(96,165,250,0.08); padding: 10px 16px; border-radius: 12px; border-top-left-radius: 4px;">
+              <p style="color: var(--text); line-height: 1.5; font-size: 15px;">Deposit 0.5 SOL and open a 3x long on SOL-PERP</p>
+            </div>
+          </div>
+          <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--primary-dim)); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px;">🤖</div>
+            <div style="background: var(--primary-soft); padding: 10px 16px; border-radius: 12px; border-top-left-radius: 4px; max-width: 320px;">
+              <p style="color: var(--text-dim); line-height: 1.5; font-size: 14px;">
+                <span style="color: var(--green);">✓</span> Deposited 0.5 SOL<br>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-muted);">tx: 4kH9...Qx7f</span>
+              </p>
+              <p style="color: var(--text-dim); line-height: 1.5; font-size: 14px; margin-top: 8px;">
+                <span style="color: var(--green);">✓</span> Opened 3x LONG SOL-PERP<br>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-muted);">entry: $142.38 · size: 1.5 SOL</span>
+              </p>
+            </div>
+          </div>
+          <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--blue), #3b82f6); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px;">👤</div>
+            <div style="background: rgba(96,165,250,0.08); padding: 10px 16px; border-radius: 12px; border-top-left-radius: 4px;">
+              <p style="color: var(--text); line-height: 1.5; font-size: 15px;">What's my current P&L?</p>
+            </div>
+          </div>
+          <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--primary-dim)); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px;">🤖</div>
+            <div style="background: var(--primary-soft); padding: 10px 16px; border-radius: 12px; border-top-left-radius: 4px;">
+              <p style="color: var(--text-dim); line-height: 1.5; font-size: 14px;">
+                SOL-PERP LONG · <span style="color: var(--green);">+$1.23 (+0.58%)</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ====== SLIDE 11: AGENT DATA FLOW ====== -->
+<div class="slide" id="slide-10">
+  <div class="bg-grid"></div>
+  <div class="bg-radial"></div>
+
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 32px; width: 100%; max-width: 1000px;">
+    <div class="anim-1">
+      <span class="badge" style="background: var(--primary-soft); color: var(--primary-light);">DATA FLOW</span>
+    </div>
+    <h2 class="anim-2" style="font-size: 44px;">How an Agent Trade Works</h2>
+
+    <div class="anim-3" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center;">
+      <div class="node-box accent" style="font-size: 15px; min-width: 140px;">
+        <div style="font-size: 24px; margin-bottom: 6px;">💬</div>
+        User Prompt
+        <div style="font-size: 11px; color: var(--text-dim); font-weight: 400; margin-top: 4px;">"Open a 2x long on SOL"</div>
+      </div>
+      <span class="flow-arrow">→</span>
+      <div class="node-box" style="font-size: 15px; min-width: 140px;">
+        <div style="font-size: 24px; margin-bottom: 6px;">🧠</div>
+        LLM
+        <div style="font-size: 11px; color: var(--text-dim); font-weight: 400; margin-top: 4px;">selects the right tool</div>
+      </div>
+      <span class="flow-arrow">→</span>
+      <div class="node-box blue" style="font-size: 15px; min-width: 140px;">
+        <div style="font-size: 24px; margin-bottom: 6px;">🔧</div>
+        Tool Call
+        <div style="font-size: 11px; color: var(--text-dim); font-weight: 400; margin-top: 4px;">open_perp_position</div>
+      </div>
+      <span class="flow-arrow">→</span>
+      <div class="node-box green" style="font-size: 15px; min-width: 140px;">
+        <div style="font-size: 24px; margin-bottom: 6px;">🔐</div>
+        Glosso
+        <div style="font-size: 11px; color: var(--text-dim); font-weight: 400; margin-top: 4px;">decrypt → sign</div>
+      </div>
+      <span class="flow-arrow">→</span>
+      <div class="node-box amber" style="font-size: 15px; min-width: 140px;">
+        <div style="font-size: 24px; margin-bottom: 6px;">⛓️</div>
+        Solana
+        <div style="font-size: 11px; color: var(--text-dim); font-weight: 400; margin-top: 4px;">on-chain transaction</div>
+      </div>
+    </div>
+
+    <div class="anim-4" style="width: 100%; max-width: 800px;">
+      <div class="code-block">
+        <span class="code-comment">// Agent code is identical across all wallet modes</span><br>
+        <span class="code-keyword">const</span> wallet = <span class="code-keyword">new</span> <span class="code-type">GlossoWallet</span>();<br>
+        <span class="code-keyword">const</span> address = <span class="code-keyword">await</span> wallet.<span class="code-fn">getAddress</span>();<br>
+        <span class="code-keyword">const</span> balance = <span class="code-keyword">await</span> wallet.<span class="code-fn">getBalance</span>();<br>
+        <span class="code-keyword">const</span> signed  = <span class="code-keyword">await</span> wallet.<span class="code-fn">sign</span>(tx);<br>
+        <span class="code-keyword">const</span> txSig   = <span class="code-keyword">await</span> wallet.<span class="code-fn">send</span>(to, lamports);
+      </div>
+    </div>
+
+    <div class="anim-5" style="display: flex; gap: 32px;">
+      <div style="display: flex; align-items: center; gap: 10px; font-size: 16px; color: var(--text-dim);">
+        <div style="width: 12px; height: 12px; border-radius: 3px; background: var(--green);"></div>
+        Keys decrypted only during signing
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; font-size: 16px; color: var(--text-dim);">
+        <div style="width: 12px; height: 12px; border-radius: 3px; background: var(--amber);"></div>
+        Real transactions on Solana devnet
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ====== SLIDE 12: SKILLS SYSTEM ====== -->
+<div class="slide" id="slide-11">
+  <div class="bg-grid"></div>
+  <div class="bg-corner-glow" style="top: -150px; right: -200px; background: var(--pink); opacity: 0.07;"></div>
+
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 36px; width: 100%; max-width: 1000px;">
+    <div class="anim-1">
+      <span class="badge" style="background: rgba(244,114,182,0.12); color: var(--pink);">EXTENSIBILITY</span>
+    </div>
+    <h2 class="anim-2" style="font-size: 46px;">Skills — Plug-in Capabilities</h2>
+    <p class="anim-3" style="font-size: 20px; color: var(--text-dim); max-width: 700px; text-align: center; line-height: 1.6;">
+      Each skill is a self-contained package with a <span class="mono" style="color: var(--pink); font-size: 17px;">SKILL.md</span> manifest, install script, and tool definitions. <strong style="color: var(--text);">OpenClaw-compatible.</strong>
+    </p>
+
+    <div class="anim-4 feature-grid feature-grid-3" style="width: 100%;">
+      <div class="feature-card">
+        <div class="feature-icon" style="background: var(--primary-soft);">💰</div>
+        <div class="feature-title">glosso-wallet</div>
+        <div class="feature-desc">Provision wallets, check balances, send SOL, view transaction history — all through the WalletAdapter interface.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background: rgba(96,165,250,0.1);">🔄</div>
+        <div class="feature-title">glosso-jupiter</div>
+        <div class="feature-desc">Token swap quotes and execution via Jupiter Aggregator. Best routes, slippage control, on-chain execution.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background: rgba(52,211,153,0.1);">📊</div>
+        <div class="feature-title">glosso-pyth</div>
+        <div class="feature-desc">Real-time price feeds from Pyth Network via Hermes API. SOL, BTC, ETH — confidence intervals included.</div>
+      </div>
+    </div>
+
+    <div class="anim-5" style="display: flex; align-items: center; gap: 20px; margin-top: 4px;">
+      <div class="node-box" style="font-size: 15px; min-width: 160px;">
+        <span style="font-family: 'JetBrains Mono'; font-size: 14px;">SKILL.md</span>
+        <div style="font-size: 12px; color: var(--text-dim); font-weight: 400; margin-top: 2px;">YAML frontmatter manifest</div>
+      </div>
+      <span class="flow-arrow">+</span>
+      <div class="node-box" style="font-size: 15px; min-width: 160px;">
+        <span style="font-family: 'JetBrains Mono'; font-size: 14px;">install.sh</span>
+        <div style="font-size: 12px; color: var(--text-dim); font-weight: 400; margin-top: 2px;">auto-detect &amp; install</div>
+      </div>
+      <span class="flow-arrow">+</span>
+      <div class="node-box" style="font-size: 15px; min-width: 160px;">
+        <span style="font-family: 'JetBrains Mono'; font-size: 14px;">provision.sh</span>
+        <div style="font-size: 12px; color: var(--text-dim); font-weight: 400; margin-top: 2px;">one-click wallet setup</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ====== SLIDE 13: MONITORING & OBSERVABILITY ====== -->
+<div class="slide" id="slide-12">
+  <div class="bg-grid"></div>
+  <div class="bg-corner-glow" style="top: -200px; right: -200px; background: var(--cyan); opacity: 0.1;"></div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1.3fr; gap: 48px; align-items: center; width: 100%; max-width: 1100px;">
+    <!-- Left: info -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+      <div class="anim-1">
+        <span class="badge" style="background: rgba(34,211,238,0.12); color: var(--cyan);">OBSERVABILITY</span>
+      </div>
+      <h2 class="anim-2" style="font-size: 44px;">Live Agent Dashboard</h2>
+      <p class="anim-3" style="font-size: 19px; color: var(--text-dim); line-height: 1.7;">
+        Every tool call, result, error, and agent thought is logged as <strong style="color: var(--text);">structured JSONL</strong> and streamed in real time to a terminal UI built with <strong style="color: var(--text);">Ink</strong> (React for the terminal).
+      </p>
+      <div class="anim-4" style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(34,211,238,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">📋</div>
+          <span style="font-size: 17px; color: var(--text-dim);"><strong style="color: var(--text);">Structured Logging</strong> — typed JSONL events for every action</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(34,211,238,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">📡</div>
+          <span style="font-size: 17px; color: var(--text-dim);"><strong style="color: var(--text);">Live Activity Feed</strong> — color-coded scrolling event stream</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(34,211,238,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">📈</div>
+          <span style="font-size: 17px; color: var(--text-dim);"><strong style="color: var(--text);">Price Sparkline</strong> — SOL/USD chart from oracle checks</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(34,211,238,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">✅</div>
+          <span style="font-size: 17px; color: var(--text-dim);"><strong style="color: var(--text);">TX Success Rate</strong> — visual bar with error tracking</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: mocked TUI -->
+    <div class="anim-5" style="position: relative;">
+      <div class="card" style="padding: 0; overflow: hidden; border-color: rgba(34,211,238,0.25); background: #08080d; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.6;">
+        <!-- TUI Header -->
+        <div style="padding: 6px 12px; border-bottom: 1px solid rgba(34,211,238,0.2); display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <span style="color: var(--cyan); font-weight: 700;">GLOSSO</span>
+            <span style="color: #555;">│</span>
+            <span style="color: var(--cyan);">sovereign</span>
+            <span style="color: #555;">│</span>
+            <span style="color: var(--amber);">9w56…5sPT</span>
+            <span style="color: #555;">│</span>
+            <span style="color: var(--pink);">devnet</span>
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <span style="color: var(--green);">⠹ LIVE</span>
+            <span style="color: #555;">│</span>
+            <span style="color: #666;">14:23:07</span>
+          </div>
+        </div>
+        <!-- TUI Body: 3 columns -->
+        <div style="display: flex; min-height: 220px;">
+          <!-- Wallet Panel -->
+          <div style="width: 130px; padding: 8px 10px; border-right: 1px solid #1a1a2e; display: flex; flex-direction: column; gap: 6px;">
+            <div style="color: var(--cyan); font-weight: 700; font-size: 11px;">WALLET</div>
+            <div><span style="color: #555;">Mode </span><span style="color: var(--cyan);">sv</span></div>
+            <div><span style="color: #555;">Addr </span><span style="color: var(--amber);">9w56</span></div>
+            <div><span style="color: #555;">SOL  </span><span style="color: #fff; font-weight: 600;">9.50</span></div>
+            <div style="margin-top: 4px; color: var(--cyan); font-weight: 700; font-size: 11px;">POSITION</div>
+            <div><span style="color: #555;">Dir  </span><span style="color: var(--green); font-weight: 600;">LONG</span></div>
+            <div><span style="color: #555;">Size </span><span style="color: #ddd;">1.5</span></div>
+            <div><span style="color: #555;">PnL  </span><span style="color: var(--green);">+0.12</span></div>
+            <div style="margin-top: 4px; color: var(--cyan); font-weight: 700; font-size: 11px;">AGENT</div>
+            <div><span style="color: #555;">Rnd  </span><span style="color: #ddd;">3/5</span></div>
+            <div><span style="color: #555;">TXs  </span><span style="color: var(--green);">4</span></div>
+            <div><span style="color: #555;">Errs </span><span style="color: #555;">0</span></div>
+          </div>
+          <!-- Activity Feed -->
+          <div style="flex: 1; padding: 8px 10px; border-right: 1px solid #1a1a2e; display: flex; flex-direction: column; gap: 3px;">
+            <div style="color: var(--cyan); font-weight: 700; font-size: 11px;">ACTIVITY</div>
+            <div style="color: var(--cyan); font-weight: 600;">─── SESSION START ─────────</div>
+            <div><span style="color: #555;">14:23 </span><span style="color: var(--cyan);">▶</span> <span style="color: #ddd;">sovereign · devnet</span></div>
+            <div><span style="color: #555;">14:23 </span><span style="color: var(--amber);">🔧</span> <span style="color: #fff; font-weight: 600;">deposit_collateral</span></div>
+            <div><span style="color: #555;">      </span><span style="color: var(--green);">✅</span> <span style="color: #ddd;">0.5 SOL deposited</span></div>
+            <div><span style="color: #555;">14:23 </span><span style="color: var(--amber);">🔧</span> <span style="color: #fff; font-weight: 600;">open_perp_position</span></div>
+            <div><span style="color: #555;">      </span><span style="color: var(--green);">✅</span> <span style="color: #ddd;">LONG 1.5 SOL</span></div>
+            <div><span style="color: #555;">14:23 </span><span style="color: var(--amber);">🔧</span> <span style="color: #fff; font-weight: 600;">get_sol_price</span></div>
+            <div><span style="color: #555;">      </span><span style="color: var(--green);">✅</span> <span style="color: #ddd;">$142.38</span></div>
+            <div><span style="color: #555;">14:23 </span><span style="color: var(--blue);">💬</span> <span style="color: #999; font-style: italic;">"Looking good…"</span></div>
+          </div>
+          <!-- Price Chart -->
+          <div style="width: 140px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px;">
+            <div style="color: var(--cyan); font-weight: 700; font-size: 11px;">SOL / USD</div>
+            <div><span style="color: #fff; font-weight: 600;">$142.38</span> <span style="color: var(--green);">▲1.2%</span></div>
+            <div style="color: var(--green); letter-spacing: 1px;">▁▂▃▅▆▃▅▇█▆▅▃▅▆▇</div>
+            <div style="display: flex; justify-content: space-between;"><span style="color: #444;">L141.2</span><span style="color: #444;">H143.1</span></div>
+            <div style="margin-top: 6px; color: var(--cyan); font-weight: 700; font-size: 11px;">TX STATS</div>
+            <div style="color: var(--green); letter-spacing: 1px;">████████████████░░</div>
+            <div style="display: flex; justify-content: space-between;"><span style="color: var(--green);">✅ 4</span><span style="color: #555;">❌ 0</span></div>
+            <div style="margin-top: 4px; color: #444;">4 price pts</div>
+          </div>
+        </div>
+        <!-- TUI Status Bar -->
+        <div style="padding: 6px 12px; border-top: 1px solid #1a1a2e; display: flex; justify-content: space-between; align-items: center;">
+          <span style="color: var(--green); letter-spacing: 1px;">░▒▓█▓▒░░▒▓█▓▒░░▒▓█▓▒░</span>
+          <div style="display: flex; gap: 12px;">
+            <span><span style="color: #555;">TXs:</span> <span style="color: var(--green); font-weight: 600;">4</span></span>
+            <span><span style="color: #555;">Errors:</span> <span style="color: #555;">0</span></span>
+            <span><span style="color: #555;">Last:</span> <span style="color: var(--green);">✅</span> <span style="color: #ddd;">get_sol_price</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom: command -->
+  <div class="anim-6" style="margin-top: 28px; display: flex; align-items: center; gap: 16px;">
+    <div style="padding: 12px 24px; border-radius: 10px; background: rgba(34,211,238,0.06); border: 1px solid rgba(34,211,238,0.15); font-family: 'JetBrains Mono', monospace; font-size: 15px;">
+      <span style="color: var(--green);">$</span> <span style="color: var(--text);">npx glosso-monitor</span> <span style="color: var(--text-muted);">--session abc123</span>
+    </div>
+    <span style="font-size: 16px; color: var(--text-dim);">One command. Full visibility.</span>
+  </div>
+</div>
+
+
+<!-- ====== SLIDE 14: MONOREPO ARCHITECTURE ====== -->
+<div class="slide" id="slide-13">
+  <div class="bg-grid"></div>
+  <div class="bg-radial"></div>
+
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 28px; width: 100%; max-width: 980px;">
+    <div class="anim-1">
+      <span class="badge" style="background: var(--primary-soft); color: var(--primary-light);">FULL PICTURE</span>
+    </div>
+    <h2 class="anim-2" style="font-size: 42px;">Monorepo Architecture</h2>
+
+    <div class="anim-3" style="display: flex; flex-direction: column; align-items: center; gap: 0; width: 100%;">
+      <div class="arch-label">Consumer</div>
+      <div class="arch-layer">
+        <div class="node-box accent" style="min-width: 320px; font-size: 18px;">
+          🤖 demo/ — AI Trading Agent
+          <div style="font-size: 13px; font-weight: 400; color: var(--text-dim);">Grok LLM · Drift Protocol · 6 Tools</div>
+        </div>
+      </div>
+
+      <div class="arch-connector"><span>↕</span><span style="font-size: 13px;">imports @glosso/core, @glosso/sdk</span></div>
+
+      <div class="arch-label">packages</div>
+      <div class="arch-layer">
+        <div class="node-box accent" style="font-size: 15px; min-width: 200px;">
+          @glosso/core
+          <div style="font-size: 12px; color: var(--text-dim);">GlossoWallet · Adapters · Crypto</div>
+        </div>
+        <div class="node-box blue" style="font-size: 15px; min-width: 140px;">
+          @glosso/cli
+          <div style="font-size: 12px; color: var(--text-dim);">Provisioner</div>
+        </div>
+        <div class="node-box" style="font-size: 15px; min-width: 140px;">
+          @glosso/sdk
+          <div style="font-size: 12px; color: var(--text-dim);">Re-exports</div>
+        </div>
+      </div>
+
+      <div class="arch-connector"><span>↕</span></div>
+
+      <div class="arch-label">Skills</div>
+      <div class="arch-layer">
+        <div class="node-box green" style="font-size: 15px; min-width: 180px;">
+          glosso-wallet
+          <div style="font-size: 12px; color: var(--text-dim);">Provision · Send · Balance</div>
+        </div>
+        <div class="node-box blue" style="font-size: 15px; min-width: 180px;">
+          glosso-jupiter
+          <div style="font-size: 12px; color: var(--text-dim);">Swap · Quote · Route</div>
+        </div>
+        <div class="node-box amber" style="font-size: 15px; min-width: 180px;">
+          glosso-pyth
+          <div style="font-size: 12px; color: var(--text-dim);">Prices · Feeds · Confidence</div>
+        </div>
+      </div>
+
+      <div class="arch-connector"><span>↕</span></div>
+
+      <div class="arch-label">Infrastructure</div>
+      <div class="arch-layer">
+        <div class="node-box" style="font-size: 15px; min-width: 180px; border-color: var(--primary); background: linear-gradient(135deg, rgba(20,184,166,0.06), rgba(13,148,136,0.03));">
+          Solana
+          <div style="font-size: 12px; color: var(--text-dim);">Devnet / Mainnet</div>
+        </div>
+        <div class="node-box" style="font-size: 15px; min-width: 180px;">
+          Drift Protocol
+          <div style="font-size: 12px; color: var(--text-dim);">Perps · Spot · Oracle</div>
+        </div>
+        <div class="node-box" style="font-size: 15px; min-width: 180px;">
+          Jupiter · Pyth
+          <div style="font-size: 12px; color: var(--text-dim);">Aggregator · Feeds</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ====== SLIDE 15: WHAT'S BUILT ====== -->
+<div class="slide" id="slide-14">
+  <div class="bg-grid"></div>
+
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 36px; width: 100%; max-width: 900px;">
+    <div class="anim-1">
+      <span class="badge" style="background: rgba(52,211,153,0.12); color: var(--green);">STATUS</span>
+    </div>
+    <h2 class="anim-2" style="font-size: 46px;">What's Built</h2>
+
+    <div class="anim-3" style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px; width: 100%;">
+      <div class="card" style="padding: 20px 26px; display: flex; align-items: center; gap: 16px;">
+        <span style="font-size: 26px;">🔀</span>
+        <div>
+          <div style="font-weight: 600; font-size: 18px;">GlossoWallet</div>
+          <div style="font-size: 15px; color: var(--text-dim);">3 adapters, 1 interface</div>
+        </div>
+        <span style="margin-left: auto; color: var(--green); font-size: 15px; font-weight: 600;">✓ LIVE</span>
+      </div>
+
+      <div class="card" style="padding: 20px 26px; display: flex; align-items: center; gap: 16px;">
+        <span style="font-size: 26px;">🔐</span>
+        <div>
+          <div style="font-weight: 600; font-size: 18px;">AES-256-GCM Encryption</div>
+          <div style="font-size: 15px; color: var(--text-dim);">PBKDF2 · 100K iterations</div>
+        </div>
+        <span style="margin-left: auto; color: var(--green); font-size: 15px; font-weight: 600;">✓ LIVE</span>
+      </div>
+
+      <div class="card" style="padding: 20px 26px; display: flex; align-items: center; gap: 16px;">
+        <span style="font-size: 26px;">🌱</span>
+        <div>
+          <div style="font-weight: 600; font-size: 18px;">HD Wallet Derivation</div>
+          <div style="font-size: 15px; color: var(--text-dim);">BIP39 + BIP44 sub-wallets</div>
+        </div>
+        <span style="margin-left: auto; color: var(--green); font-size: 15px; font-weight: 600;">✓ LIVE</span>
+      </div>
+
+      <div class="card" style="padding: 20px 26px; display: flex; align-items: center; gap: 16px;">
+        <span style="font-size: 26px;">⚡</span>
+        <div>
+          <div style="font-weight: 600; font-size: 18px;">CLI Provisioner</div>
+          <div style="font-size: 15px; color: var(--text-dim);">npx glosso provision</div>
+        </div>
+        <span style="margin-left: auto; color: var(--green); font-size: 15px; font-weight: 600;">✓ LIVE</span>
+      </div>
+
+      <div class="card" style="padding: 20px 26px; display: flex; align-items: center; gap: 16px;">
+        <span style="font-size: 26px;">🤖</span>
+        <div>
+          <div style="font-weight: 600; font-size: 18px;">Drift Trading Agent</div>
+          <div style="font-size: 15px; color: var(--text-dim);">6 real tools · Grok LLM</div>
+        </div>
+        <span style="margin-left: auto; color: var(--green); font-size: 15px; font-weight: 600;">✓ LIVE</span>
+      </div>
+
+      <div class="card" style="padding: 20px 26px; display: flex; align-items: center; gap: 16px;">
+        <span style="font-size: 26px;">📊</span>
+        <div>
+          <div style="font-weight: 600; font-size: 18px;">3 Agent Skills</div>
+          <div style="font-size: 15px; color: var(--text-dim);">Wallet · Jupiter · Pyth</div>
+        </div>
+        <span style="margin-left: auto; color: var(--green); font-size: 15px; font-weight: 600;">✓ LIVE</span>
+      </div>
+
+      <div class="card" style="padding: 20px 26px; display: flex; align-items: center; gap: 16px;">
+        <span style="font-size: 26px;">🏦</span>
+        <div>
+          <div style="font-weight: 600; font-size: 18px;">Privy Adapter</div>
+          <div style="font-size: 15px; color: var(--text-dim);">Secure enclave signing</div>
+        </div>
+        <span style="margin-left: auto; color: var(--primary-light); font-size: 15px; font-weight: 600;">● BUILT</span>
+      </div>
+
+      <div class="card" style="padding: 20px 26px; display: flex; align-items: center; gap: 16px;">
+        <span style="font-size: 26px;">🔒</span>
+        <div>
+          <div style="font-weight: 600; font-size: 18px;">Turnkey Adapter</div>
+          <div style="font-size: 15px; color: var(--text-dim);">HSM key management</div>
+        </div>
+        <span style="margin-left: auto; color: var(--primary-light); font-size: 15px; font-weight: 600;">● BUILT</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ====== SLIDE 16: WHY GLOSSO ====== -->
+<div class="slide" id="slide-15">
+  <div class="bg-grid"></div>
+  <div class="bg-corner-glow" style="bottom: -200px; right: -200px; background: var(--blue); opacity: 0.08;"></div>
+
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 36px; width: 100%; max-width: 1000px;">
+    <div class="anim-1">
+      <span class="badge" style="background: rgba(96,165,250,0.12); color: var(--blue);">WHY GLOSSO</span>
+    </div>
+    <h2 class="anim-2" style="font-size: 46px;">The Competitive Edge</h2>
+
+    <div class="anim-3" style="width: 100%; overflow: hidden; border-radius: 16px; border: 1px solid var(--border);">
+      <table style="width: 100%; border-collapse: collapse; font-size: 17px;">
+        <thead>
+          <tr style="background: var(--bg-card);">
+            <th style="padding: 18px 24px; text-align: left; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border);"></th>
+            <th style="padding: 18px 24px; text-align: center; font-weight: 700; color: var(--text); border-bottom: 1px solid var(--border); background: rgba(20,184,166,0.06);">Glosso</th>
+            <th style="padding: 18px 24px; text-align: center; font-weight: 600; color: var(--text-dim); border-bottom: 1px solid var(--border);">Raw Keys</th>
+            <th style="padding: 18px 24px; text-align: center; font-weight: 600; color: var(--text-dim); border-bottom: 1px solid var(--border);">Single SDK</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding: 16px 24px; border-bottom: 1px solid var(--border); color: var(--text-dim);">Encrypted at rest</td>
+            <td style="padding: 16px 24px; border-bottom: 1px solid var(--border); text-align: center; background: rgba(20,184,166,0.03);"><span style="color: var(--green); font-size: 20px;">✓</span></td>
+            <td style="padding: 16px 24px; border-bottom: 1px solid var(--border); text-align: center;"><span style="color: var(--red); font-size: 20px;">✗</span></td>
+            <td style="padding: 16px 24px; border-bottom: 1px solid var(--border); text-align: center;"><span style="color: var(--amber);">varies</span></td>
+          </tr>
+          <tr>
+            <td style="padding: 16px 24px; border-bottom: 1px solid var(--border); color: var(--text-dim);">Swappable adapters</td>
+            <td style="padding: 16px 24px; border-bottom: 1px solid var(--border); text-align: center; background: rgba(20,184,166,0.03);"><span style="color: var(--green); font-size: 20px;">✓</span></td>
+            <td style="padding: 16px 24px; border-bottom: 1px solid var(--border); text-align: center;"><span style="color: var(--red); font-size: 20px;">✗</span></td>
+            <td style="padding: 16px 24px; border-bottom: 1px solid var(--border); text-align: center;"><span style="color: var(--red); font-size: 20px;">✗</span></td>
+          </tr>
+          <tr>
+            <td style="padding: 16px 24px; border-bottom: 1px solid var(--border); color: var(--text-dim);">HD sub-wallets</td>
+            <td style="padding: 16px 24px; border-bottom: 1px solid var(--border); text-align: center; background: rgba(20,184,166,0.03);"><span style="color: var(--green); font-size: 20px;">✓</span></td>
+            <td style="padding: 16px 24px; border-bottom: 1px solid var(--border); text-align: center;"><span style="color: var(--red); font-size: 20px;">✗</span></td>
+            <td style="padding: 16px 24px; border-bottom: 1px solid var(--border); text-align: center;"><span style="color: var(--amber);">varies</span></td>
+          </tr>
+          <tr>
+            <td style="padding: 16px 24px; border-bottom: 1px solid var(--border); color: var(--text-dim);">One-command setup</td>
+            <td style="padding: 16px 24px; border-bottom: 1px solid var(--border); text-align: center; background: rgba(20,184,166,0.03);"><span style="color: var(--green); font-size: 20px;">✓</span></td>
+            <td style="padding: 16px 24px; border-bottom: 1px solid var(--border); text-align: center;"><span style="color: var(--red); font-size: 20px;">✗</span></td>
+            <td style="padding: 16px 24px; border-bottom: 1px solid var(--border); text-align: center;"><span style="color: var(--amber);">varies</span></td>
+          </tr>
+          <tr>
+            <td style="padding: 16px 24px; color: var(--text-dim);">Real DeFi demo</td>
+            <td style="padding: 16px 24px; text-align: center; background: rgba(20,184,166,0.03);"><span style="color: var(--green); font-size: 20px;">✓</span></td>
+            <td style="padding: 16px 24px; text-align: center;"><span style="color: var(--text-muted);">—</span></td>
+            <td style="padding: 16px 24px; text-align: center;"><span style="color: var(--text-muted);">—</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="anim-4" style="display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;">
+      <div class="pill"><span class="dot" style="background: var(--green);"></span> Production Security</div>
+      <div class="pill"><span class="dot" style="background: var(--primary);"></span> Adapter Agnostic</div>
+      <div class="pill"><span class="dot" style="background: var(--amber);"></span> Real DeFi Trades</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ====== SLIDE 17: CTA / CLOSE ====== -->
+<div class="slide" id="slide-16">
+  <div class="bg-grid"></div>
+  <div class="bg-radial"></div>
+  <div class="bg-corner-glow" style="top: -200px; right: -200px; background: var(--primary);"></div>
+  <div class="bg-corner-glow" style="bottom: -200px; left: -150px; background: var(--primary-dim); opacity: 0.08;"></div>
+
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 32px; text-align: center;">
+    <div class="anim-1" style="margin-bottom: 8px;">
+      <svg width="72" height="72" viewBox="0 0 64 64" fill="none">
+        <rect width="64" height="64" rx="16" fill="url(#logo-grad2)"/>
+        <circle cx="32" cy="26" r="8" stroke="#fff" stroke-width="2.5" fill="none"/>
+        <path d="M20 46c0-6.627 5.373-12 12-12s12 6.627 12 12" stroke="#fff" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+        <path d="M40 22l4-4M24 22l-4-4" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+        <defs><linearGradient id="logo-grad2" x1="0" y1="0" x2="64" y2="64"><stop stop-color="#14b8a6"/><stop offset="1" stop-color="#0d9488"/></linearGradient></defs>
+      </svg>
+    </div>
+    <h1 class="anim-2 glow-text" style="font-size: 80px; background: linear-gradient(135deg, #fff 30%, var(--primary) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+      Glosso
+    </h1>
+    <p class="anim-3" style="font-size: 26px; color: var(--text-dim); max-width: 620px; line-height: 1.5;">
+      One wallet interface. Three key management systems. Real DeFi trading.<br>
+      <strong style="color: var(--text);">The wallet infrastructure AI agents deserve.</strong>
+    </p>
+
+    <div class="anim-4" style="display: flex; gap: 16px; margin-top: 16px;">
+      <a href="https://github.com/ubadineke/glosso" target="_blank" style="text-decoration: none;">
+        <div class="pill" style="cursor: pointer; font-size: 18px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          github.com/ubadineke/glosso
+        </div>
+      </a>
+    </div>
+
+    <div class="anim-5" style="display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; justify-content: center;">
+      <span class="track-badge" style="border-color: var(--primary); color: var(--primary-light); background: var(--primary-soft);">
+        🔐 Wallet Infra
+      </span>
+      <span class="track-badge" style="border-color: var(--blue); color: var(--blue); background: rgba(96,165,250,0.08);">
+        🤖 AI Agents
+      </span>
+      <span class="track-badge" style="border-color: var(--amber); color: var(--amber); background: rgba(251,191,36,0.08);">
+        📈 DeFi Trading
+      </span>
+    </div>
+
+    <p class="anim-6 mono" style="font-size: 14px; color: var(--text-muted); margin-top: 8px;">
+      Built for Superteam Nigeria &middot; DeFi Developer Challenge
+    </p>
+  </div>
+</div>
+
+
+<!-- ====== NAVIGATION ====== -->
+<div class="nav" id="nav"></div>
+<div class="key-hint"><kbd>←</kbd> <kbd>→</kbd> or click</div>
+
+<script>
+(function() {
+  const slides = document.querySelectorAll('.slide');
+  const nav = document.getElementById('nav');
+  let current = 0;
+  const total = slides.length;
+
+  for (let i = 0; i < total; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+    dot.dataset.index = i;
+    dot.onclick = () => goTo(i);
+    nav.appendChild(dot);
+  }
+  const counter = document.createElement('span');
+  counter.className = 'nav-counter';
+  counter.textContent = `1 / ${total}`;
+  nav.appendChild(counter);
+
+  function goTo(n) {
+    if (n < 0 || n >= total || n === current) return;
+    slides[current].classList.remove('active');
+    slides[current].classList.add('exit-left');
+
+    const prev = current;
+    current = n;
+
+    slides[current].querySelectorAll('[class*="anim-"]').forEach(el => {
+      el.style.animation = 'none';
+      el.offsetHeight;
+      el.style.animation = '';
+    });
+
+    slides[current].classList.add('active');
+
+    nav.querySelectorAll('.nav-dot').forEach((d, i) => {
+      d.classList.toggle('active', i === current);
+    });
+    counter.textContent = `${current + 1} / ${total}`;
+
+    setTimeout(() => { slides[prev].classList.remove('exit-left'); }, 500);
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+      e.preventDefault();
+      goTo(current + 1);
+    }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      goTo(current - 1);
+    }
+    if (e.key === 'Home') { e.preventDefault(); goTo(0); }
+    if (e.key === 'End') { e.preventDefault(); goTo(total - 1); }
+  });
+
+  let touchStartX = 0;
+  document.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; });
+  document.addEventListener('touchend', e => {
+    const diff = touchStartX - e.changedTouches[0].screenX;
+    if (Math.abs(diff) > 50) {
+      diff > 0 ? goTo(current + 1) : goTo(current - 1);
+    }
+  });
+})();
+</script>
+</body>
+</html>

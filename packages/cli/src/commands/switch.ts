@@ -19,6 +19,12 @@ export const switchCommand = new Command('switch')
   .option('-m, --mode <mode>', 'Target wallet mode: sovereign, privy, or turnkey')
   .option('-d, --dir <path>', 'Directory containing .env file', '.')
   .option('-l, --list', 'List all provisioned modes without switching')
+  .addHelpText('after', `
+Examples:
+  glosso switch --list                 # show all provisioned modes
+  glosso switch --mode sovereign
+  glosso switch --mode privy --dir ./demo
+`)
   .action(async (options) => {
     try {
       await runSwitch(options);
