@@ -175,6 +175,23 @@ function renderEntry(entry: LogEntry, idx: number): React.ReactNode {
       );
     }
 
+    case 'policy_block': {
+      const reason = (entry as any).reason || 'policy violation';
+      const scope = (entry as any).scope || '';
+      return (
+        <Box key={key} flexDirection="column">
+          <Box gap={1}>
+            <Text color="gray">{time}</Text>
+            <Text color="red" bold>⛔ BLOCKED</Text>
+            <Text color="red">{scope}</Text>
+          </Box>
+          <Box marginLeft={10}>
+            <Text color="red" dimColor>{reason}</Text>
+          </Box>
+        </Box>
+      );
+    }
+
     default:
       return (
         <Box key={key} gap={1}>

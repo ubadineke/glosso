@@ -1,0 +1,108 @@
+---
+title: Overview
+description: How the Glosso policy engine works — architecture, enforcement model, and config.
+---
+
+
+The policy engine sits between every agent action and the signing adapter. It reads a config you define, checks each transaction before it's signed, and either approves or rejects with a structured error the agent can reason about.
+
+AI agents can be clumsy. The policy engine means a miscalibrated agent hits a wall instead of draining a wallet.
+
+---
+
+## Architecture
+
+```
+Agent calls wallet.send() or wallet.signTransaction()
+              ↓
+        PolicyEngine.check(tx)
+          ├── parse instructions
+          │     ├── extract top-level program IDs
+          │     └── extract SOL transfer amount (System Program)
+          ├── check spend limits     (maxSolPerTx, maxSolPerDay, …)
+          ├── check rate limits      (maxTxPerHour, maxTxPerDay, …)
+          ├── check program allowlist
+          ├── check recipient allow/blocklist
+          ├── check time controls    (activeHours, activeDays, expiresAt)
+          ├── check memo requirement
+          └── APPROVE ──── or ──── REJECT (PolicyViolationError)
+              ↓
+        Signing backend  (sovereign / privy / turnkey)
+              ↓
+        Broadcast to Solana
+```
+
+---
+
+## Hot Reload
+
+The engine re-reads `~/.glosso/policy.json` **before every sign call**. This means:
+
+- Run `glosso policy pause` and the next agent action is blocked — no restart needed
+- Update `MAX_SOL_PER_TX` and the new limit is active immediately
+- The agent process never needs to be restarted to apply config changes
+
+---
+
+## PolicyViolationError
+
+When the engine blocks a transaction, it throws a `PolicyViolationError` with two fields:
+
+| Field | Type | Example |
+|---|---|---|
+| `scope` | string | `MAX_SOL_PER_TX` |
+| `reason` | string | `1.0000 SOL exceeds per-tx limit of 0.5 SOL` |
+
+The `reason` field is written in plain English — the agent can read it, include it in its response to the user, and stop retrying.
+
+```typescript
+import { PolicyViolationError } from '@glosso/core';
+
+try {
+  await scopedWallet.send(recipient, lamports);
+} catch (e) {
+  if (e instanceof PolicyViolationError) {
+    return {
+      error: `Blocked by policy: ${e.reason}`,
+      // e.g. "Blocked by policy: 2/5 txs in the last hour"
+    };
+  }
+  throw e;
+}
+```
+
+---
+
+## Rolling Windows
+
+Rate and spend limits use **sliding windows**, not calendar resets. This means:
+
+- `maxSolPerDay: 3.0` means "no more than 3 SOL in any rolling 24-hour period" — not "reset at midnight UTC"
+- `maxTxPerHour: 5` means "no more than 5 txs in any 60-minute period" — not "reset on the hour"
+
+This prevents timing attacks (spending right before midnight to get a fresh calendar day).
+
+---
+
+## CPI Boundary
+
+When an agent uses Drift or Jupiter, the transaction contains top-level instructions pointing at those protocol program IDs. CPI (cross-program invocations) happen on-chain — Glosso never sees them.
+
+The policy engine checks **top-level `programId`s only**. If `dRiftyHA...` is in `allowedPrograms`, the full Drift transaction including its inner token program CPIs is approved.
+
+This is the correct security boundary. You grant access at the protocol level, not at the CPI level.
+
+<Callout type="info">
+  For versioned transactions with Address Lookup Tables (ALTs): the engine currently checks static account keys only. Full ALT resolution is a planned enhancement.
+</Callout>
+
+---
+
+## Activity Log
+
+Every blocked transaction is logged to `~/.glosso/activity.log` as a `policy_block` event and surfaces in both `glosso logs` and the TUI monitor:
+
+```
+16:42:01  ⛔ BLOCKED  MAX_SOL_PER_DAY — 2.8/3.0 SOL used today
+16:51:14  ⛔ BLOCKED  ALLOWED_PROGRAMS — Program xyz not in allowedPrograms
+```

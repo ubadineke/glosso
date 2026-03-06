@@ -1,0 +1,132 @@
+---
+title: Demo — Autonomous Trading Agent
+description: A fully autonomous Drift perpetuals trading agent that runs without human input.
+---
+
+
+`demo/src/agent.ts` is a complete autonomous Drift trading agent. It reads `GLOSSO.md` at startup, discovers its tools, and executes a full trading cycle — price check, deposit, open position, monitor PnL, close — without any human prompting.
+
+---
+
+## What the Agent Does
+
+1. **Fetches live SOL price** from Pyth Network
+2. **Decides direction** — long or short — based on a configurable signal
+3. **Deposits collateral** into Drift protocol
+4. **Opens a SOL-PERP position** with the deposited collateral
+5. **Monitors PnL** in real time
+6. **Closes the position** when the target is reached
+7. **Logs every step** to `~/.glosso/activity.log`
+
+The agent loop runs until the task is complete or `maxRounds` is hit. Every tool call and LLM reasoning step is visible in `glosso monitor`.
+
+---
+
+## Run It
+
+<Steps>
+  <Step title="Provision a wallet (if you haven't)">
+    ```bash
+    npx tsx packages/cli/src/index.ts provision --mode sovereign
+    ```
+  </Step>
+
+  <Step title="Set up the demo environment">
+    ```bash
+    cd demo
+    cp .env.example .env
+    ```
+
+    Edit `.env` and add your LLM API key:
+
+    ```bash
+    XAI_API_KEY=your_key_here      # for Grok
+    # or
+    OPENAI_API_KEY=your_key_here   # for GPT-4o
+    ```
+  </Step>
+
+  <Step title="Install demo dependencies">
+    ```bash
+    pnpm install
+    ```
+  </Step>
+
+  <Step title="Run the agent">
+    ```bash
+    npx tsx src/agent.ts
+    ```
+  </Step>
+
+  <Step title="Watch it live (optional, in a second terminal)">
+    ```bash
+    npx tsx packages/cli/src/index.ts monitor
+    ```
+  </Step>
+</Steps>
+
+---
+
+## How It Works
+
+The demo agent uses the `ai` SDK with a tool-use loop:
+
+```typescript
+// Simplified demo/src/agent.ts
+const systemPrompt = glossoMd + driftCapabilities;
+
+while (round < maxRounds) {
+  const response = await generateText({
+    model: xai('grok-2-1212'),
+    system: systemPrompt,
+    messages: history,
+    tools: { glosso_balance, glosso_price, deposit_collateral, open_perp_position, ... },
+  });
+
+  if (response.finishReason === 'stop') break;
+
+  // Execute tool calls, add results to history
+  history.push(...toolResults);
+  round++;
+}
+```
+
+`GLOSSO.md` in the system prompt tells the agent exactly which tools exist and how to call them. The agent reasons about its current state (balance, price, position) and decides what to do next.
+
+---
+
+## Adding Policy
+
+Before running the demo against a real account, you should set spend limits:
+
+```bash
+npx tsx packages/cli/src/index.ts policy set MAX_SOL_PER_TX 1.0
+npx tsx packages/cli/src/index.ts policy set MAX_SOL_PER_DAY 5.0
+npx tsx packages/cli/src/index.ts policy allow-program dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH
+npx tsx packages/cli/src/index.ts policy allow-program 11111111111111111111111111111111
+```
+
+Then in the demo, wrap the wallet:
+
+```typescript
+const wallet = await GlossoWallet.fromEnv();
+const scoped = wallet.withPolicy({}); // reads ~/.glosso/policy.json automatically
+```
+
+---
+
+## Demo Tools
+
+| Tool | What It Does |
+|---|---|
+| `glosso_balance` | Check SOL balance |
+| `glosso_price` | Fetch SOL price from Pyth |
+| `deposit_collateral` | Deposit SOL into Drift |
+| `open_perp_position` | Open SOL-PERP long or short |
+| `get_position` | Check current position and unrealized PnL |
+| `close_perp_position` | Close the open position |
+| `withdraw_collateral` | Withdraw remaining collateral |
+
+<Callout type="warning">
+  The demo is configured for **devnet** by default. Do not run it on mainnet without updating `GLOSSO_NETWORK=mainnet-beta` in `.env` and setting appropriate policy limits.
+</Callout>

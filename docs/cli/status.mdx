@@ -1,0 +1,34 @@
+---
+title: glosso status
+description: Show the active wallet mode, address, and balance.
+---
+
+## Usage
+
+```bash
+glosso status [options]
+```
+
+## Options
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--network` | `devnet \| mainnet-beta` | from `.env` | Override network |
+| `--index` | number | `0` | Sub-wallet index to query |
+
+## Example Output
+
+```
+┌─────────────────────────────────────────────────────┐
+│  GLOSSO — Wallet Status                             │
+├─────────────────────────────────────────────────────┤
+│  Mode:      sovereign                               │
+│  Network:   devnet                                  │
+│  Address:   Bf8PxxWt7VEi3m9aunc5MzRF1JYuBsbn6VP... │
+│  Balance:   2.000000 SOL                            │
+│                                                     │
+│  Sub-wallets:                                       │
+│    [0] Bf8Pxx...n33UH   2.000000 SOL  (primary)    │
+│    [1] 7nYfs5...E4xKp   0.000000 SOL  (trading)    │
+└─────────────────────────────────────────────────────┘
+```

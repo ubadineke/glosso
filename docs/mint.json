@@ -1,0 +1,86 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "Glosso",
+  "favicon": "/logo/favicon.svg",
+  "colors": {
+    "primary": "#00C8FF",
+    "light": "#00E5FF",
+    "dark": "#0090BB",
+    "anchors": {
+      "from": "#00C8FF",
+      "to": "#0055AA"
+    }
+  },
+  "topbarLinks": [
+    {
+      "name": "GitHub",
+      "url": "https://github.com/ubadineke/glosso"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "Get Started",
+    "url": "/quickstart"
+  },
+  "tabs": [
+    {
+      "name": "CLI Reference",
+      "url": "cli"
+    },
+    {
+      "name": "Policy Engine",
+      "url": "policy"
+    },
+    {
+      "name": "Skills",
+      "url": "skills"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Getting Started",
+      "pages": ["introduction", "quickstart"]
+    },
+    {
+      "group": "Concepts",
+      "pages": ["wallet-modes", "sdk-overview", "security"]
+    },
+    {
+      "group": "Demo",
+      "pages": ["demo"]
+    },
+    {
+      "group": "CLI Reference",
+      "pages": [
+        "cli/provision",
+        "cli/status",
+        "cli/switch",
+        "cli/logs",
+        "cli/monitor",
+        "cli/policy"
+      ]
+    },
+    {
+      "group": "Policy Engine",
+      "pages": [
+        "policy/overview",
+        "policy/scopes",
+        "policy/sdk-integration",
+        "policy/cli-management"
+      ]
+    },
+    {
+      "group": "Skills",
+      "pages": [
+        "skills/overview",
+        "skills/glosso-wallet",
+        "skills/glosso-pyth",
+        "skills/glosso-jupiter",
+        "skills/openclaw",
+        "skills/writing-a-skill"
+      ]
+    }
+  ],
+  "footerSocials": {
+    "github": "https://github.com/ubadineke/glosso"
+  }
+}

@@ -1,0 +1,75 @@
+---
+title: OpenClaw Setup
+description: Install Glosso skills on an OpenClaw agent VM with one command.
+---
+
+
+[OpenClaw](https://openclaw.dev) is an agent VM platform that manages skill installation, gateway routing, and agent runtime. Glosso is designed to work natively with OpenClaw — one command installs everything.
+
+---
+
+## Install
+
+<Steps>
+  <Step title="Run the installer on your OpenClaw VM">
+    SSH into your OpenClaw VM and run:
+
+    ```bash
+    git clone https://github.com/ubadineke/glosso.git && cd glosso && bash install.sh
+    ```
+
+    This installs `glosso-wallet`, `glosso-pyth`, and `glosso-jupiter` into `~/.openclaw/skills/` and restarts the OpenClaw gateway.
+  </Step>
+
+  <Step title="Verify the skills are installed">
+    ```bash
+    ls ~/.openclaw/skills/
+    # glosso-wallet/   glosso-pyth/   glosso-jupiter/
+    ```
+  </Step>
+
+  <Step title="Provision a wallet via the agent chat">
+    In the OpenClaw chat interface, send:
+
+    > "I need a Solana wallet."
+
+    The agent reads `SKILL.md`, confirms which mode you want (sovereign/privy/turnkey), runs the provision script, and reports your wallet address. No terminal commands required.
+  </Step>
+</Steps>
+
+---
+
+## What `install.sh` Does
+
+```bash
+# installs Node deps for each skill
+# copies skill directories to ~/.openclaw/skills/
+# restarts the gateway so the skills are available
+```
+
+The install script is idempotent — running it again updates the skills to the latest version without duplicating anything.
+
+---
+
+## Skills After Install
+
+| Skill | Path | What the agent can do |
+|---|---|---|
+| `glosso-wallet` | `~/.openclaw/skills/glosso-wallet/` | Check balance, send SOL, view history |
+| `glosso-pyth` | `~/.openclaw/skills/glosso-pyth/` | Get real-time prices |
+| `glosso-jupiter` | `~/.openclaw/skills/glosso-jupiter/` | Quote and execute token swaps |
+
+---
+
+## Agent Prompting
+
+After provisioning, the agent has a `GLOSSO.md` in its working directory. OpenClaw automatically injects it as context. You can then ask the agent things like:
+
+- "Check my SOL balance"
+- "Send 0.1 SOL to [address]"
+- "What's the current price of SOL?"
+- "Swap 0.5 SOL for USDC"
+
+<Callout type="info">
+  If the agent responds that it doesn't know how to check balances or send SOL, check that `GLOSSO.md` exists in the working directory and that the skill scripts are in `~/.openclaw/skills/`.
+</Callout>

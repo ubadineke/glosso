@@ -1,0 +1,103 @@
+---
+title: Scopes Reference
+description: Every policy scope — what it controls, type, and default.
+---
+
+All scopes are optional. Omitting a scope means that dimension is unlimited. `null` is also treated as unlimited in the JSON config.
+
+---
+
+## Spend Limits
+
+| Scope | Type | Description |
+|---|---|---|
+| `maxSolPerTx` | `number` | Max SOL transferable in a single transaction |
+| `maxSolPerDay` | `number` | Rolling 24h SOL spend ceiling (sliding window) |
+| `maxSolPerWeek` | `number` | Rolling 7-day SOL spend ceiling |
+| `maxSolPerSession` | `number` | Max SOL spend for the current process lifetime |
+
+**Note:** SOL amounts are measured from System Program `Transfer` instructions. DeFi protocol amounts (Drift deposits, Jupiter swaps) are not currently parsed — see [Deferred Features](#deferred-features).
+
+---
+
+## Rate Limits
+
+| Scope | Type | Description |
+|---|---|---|
+| `maxTxPerHour` | `number` | Burst protection — max txs in any 60-minute window |
+| `maxTxPerDay` | `number` | Max txs signed in any 24-hour window |
+| `maxTxPerSession` | `number` | Max txs this process may sign before halting |
+
+---
+
+## Program / Protocol Controls
+
+| Scope | Type | Description |
+|---|---|---|
+| `allowedPrograms` | `string[]` | Whitelist of on-chain program IDs allowed at the top-level. When non-empty, any transaction involving a program not on this list is rejected. |
+| `blockedPrograms` | `string[]` | Explicit denylist — checked even if `allowedPrograms` is empty. |
+
+**Common program IDs:**
+
+| Program | ID |
+|---|---|
+| System Program | `11111111111111111111111111111111` |
+| Drift | `dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH` |
+| Jupiter | `JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4` |
+| Token Program | `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` |
+| Associated Token Program | `ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJe1bbd` |
+| Memo Program | `MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr` |
+
+---
+
+## Recipient Controls
+
+| Scope | Type | Description |
+|---|---|---|
+| `allowedRecipients` | `string[]` | Whitelist of addresses SOL may be sent to. When non-empty, sends to any other address are blocked. |
+| `blockedRecipients` | `string[]` | Explicit denylist of addresses. |
+| `maxUniqueRecipientsPerDay` | `number` | Limit address fan-out — prevents distribution to many new addresses per day. |
+
+---
+
+## Time-Based Controls
+
+| Scope | Type | Description |
+|---|---|---|
+| `activeHours` | `{ from: number, to: number, timezone: string }` | Clock window per calendar day when signing is permitted. `from` and `to` are 0–23 (UTC hours). |
+| `activeDays` | `string[]` | Days of the week when signing is permitted: `"mon"` `"tue"` `"wed"` `"thu"` `"fri"` `"sat"` `"sun"` |
+| `expiresAt` | `Date \| string` | Hard cutoff — all signing refused after this datetime. |
+| `startsAt` | `Date \| string` | Scheduled activation — signing refused before this datetime. |
+| `maxSessionDurationHours` | `number` | Auto-expire the scoped wallet N hours after process start. |
+
+---
+
+## Instruction-Level Controls
+
+| Scope | Type | Description |
+|---|---|---|
+| `maxInstructionsPerTx` | `number` | Limit transaction complexity. Transactions with more instructions than this are rejected. |
+| `requireMemo` | `boolean` | Every signed transaction must include a Memo Program instruction. Useful for on-chain audit trails. |
+
+---
+
+## Emergency Controls
+
+| Scope | Type | Description |
+|---|---|---|
+| `paused` | `boolean` | Kill switch. When `true`, all signing is immediately blocked regardless of any other config. Set via `glosso policy pause`. |
+
+---
+
+## Deferred Features
+
+These scopes appear in the `PolicyConfig` type but are not yet enforced by the engine:
+
+| Scope | Status | Why |
+|---|---|---|
+| `allowedTokenMints` | Planned | Requires Token Program instruction parsing |
+| `maxCollateralDeposit` | Planned | Requires per-protocol IDL discriminators for deposit instructions |
+| `maxPositionSizeSol` | Planned | Same — protocol-specific instruction parsing |
+| `maxLeverage` | Planned | Same |
+| `maxOpenPositions` | Planned | Requires querying on-chain state |
+| `requireConfirmation` | Planned | Needs async approval flow / human-in-the-loop |

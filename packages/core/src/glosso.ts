@@ -3,6 +3,12 @@ import { WalletAdapter, isVersionedTx, AnyTransaction } from './adapters/interfa
 import { SovereignAdapter } from './adapters/sovereign';
 import { PrivyAdapter } from './adapters/privy';
 import { TurnkeyAdapter } from './adapters/turnkey';
+import { PolicyEngine } from './policy/engine';
+import { PolicyStateManager } from './policy/state';
+import { PolicyViolationError } from './policy/types';
+import type { PolicyConfig, PolicyPersistenceOptions } from './policy/types';
+import { extractSolAmount } from './policy/parser';
+import { logEvent } from './utils/logger';
 
 /**
  * A Drift-compatible IWallet that delegates all signing to GlossoWallet.
@@ -34,6 +40,7 @@ export interface GlossoDriftWallet {
 export class GlossoWallet implements WalletAdapter {
   private adapter: WalletAdapter;
   public readonly mode: string;
+  protected policyEngine?: PolicyEngine;
 
   constructor(config?: { mode?: string }) {
     const mode = config?.mode || process.env.GLOSSO_MODE;
@@ -133,5 +140,145 @@ export class GlossoWallet implements WalletAdapter {
         return signed;
       },
     };
+  }
+
+  /**
+   * Create a scoped version of this wallet with policy limits enforced.
+   *
+   * All subsequent signAny(), sign(), signVersioned(), and send() calls
+   * go through the PolicyEngine. Violations throw PolicyViolationError.
+   *
+   * @param config  — policy limits to enforce
+   * @param options — persistence options (ephemeral by default)
+   *
+   * Usage:
+   *   const scoped = wallet.withPolicy({
+   *     maxSolPerTx: 0.5,
+   *     maxTxPerDay: 20,
+   *     allowedPrograms: [DRIFT_PROGRAM_ID],
+   *   });
+   *   await scoped.signAny(tx); // throws PolicyViolationError if limit hit
+   */
+  withPolicy(
+    config: PolicyConfig,
+    options?: PolicyPersistenceOptions
+  ): ScopedGlossoWallet {
+    return new ScopedGlossoWallet(this, config, options);
+  }
+}
+
+/**
+ * ScopedGlossoWallet — A GlossoWallet wrapper with policy enforcement.
+ *
+ * Delegates all operations to the inner wallet but runs PolicyEngine.check()
+ * before every sign/send. Records successful transactions in rolling counters.
+ */
+export class ScopedGlossoWallet implements WalletAdapter {
+  private inner: GlossoWallet;
+  private engine: PolicyEngine;
+  public readonly mode: string;
+
+  constructor(
+    inner: GlossoWallet,
+    config: PolicyConfig,
+    options?: PolicyPersistenceOptions
+  ) {
+    this.inner = inner;
+    this.mode = inner.mode;
+    const stateManager = new PolicyStateManager(options);
+    this.engine = new PolicyEngine(config, stateManager);
+  }
+
+  async getAddress(index?: number): Promise<string> {
+    return this.inner.getAddress(index);
+  }
+
+  async getBalance(index?: number): Promise<number> {
+    return this.inner.getBalance(index);
+  }
+
+  async sign(transaction: Transaction, index?: number): Promise<Transaction> {
+    this.runCheck(() => this.engine.checkTransaction(transaction));
+    const signed = await this.inner.sign(transaction, index);
+    const solAmount = extractSolAmount(transaction);
+    this.engine.recordTransaction(solAmount);
+    return signed;
+  }
+
+  async signVersioned(
+    transaction: VersionedTransaction,
+    index?: number
+  ): Promise<VersionedTransaction> {
+    this.runCheck(() => this.engine.checkTransaction(transaction));
+    const signed = await this.inner.signVersioned(transaction, index);
+    const solAmount = extractSolAmount(transaction);
+    this.engine.recordTransaction(solAmount);
+    return signed;
+  }
+
+  async signAny(tx: AnyTransaction, index?: number): Promise<AnyTransaction> {
+    if (isVersionedTx(tx)) return this.signVersioned(tx, index);
+    return this.sign(tx, index);
+  }
+
+  async send(to: string, lamports: number, index?: number): Promise<string> {
+    this.runCheck(() => this.engine.checkSend(to, lamports));
+    const sig = await this.inner.send(to, lamports, index);
+    this.engine.recordTransaction(lamports / 1e9, to);
+    return sig;
+  }
+
+  async toDriftWallet(): Promise<GlossoDriftWallet> {
+    const address = await this.getAddress();
+    const publicKey = new PublicKey(address);
+
+    return {
+      publicKey,
+      signTransaction: (tx: Transaction | VersionedTransaction) => this.signAny(tx),
+      signAllTransactions: async (txs: (Transaction | VersionedTransaction)[]) => {
+        const signed: (Transaction | VersionedTransaction)[] = [];
+        for (const tx of txs) {
+          signed.push(await this.signAny(tx));
+        }
+        return signed;
+      },
+    };
+  }
+
+  /**
+   * Re-wrap with additional/different policy. Useful for progressive tightening.
+   */
+  withPolicy(
+    config: PolicyConfig,
+    options?: PolicyPersistenceOptions
+  ): ScopedGlossoWallet {
+    return new ScopedGlossoWallet(this.inner, config, options);
+  }
+
+  /**
+   * Get the underlying policy engine (for status queries).
+   */
+  getPolicyEngine(): PolicyEngine {
+    return this.engine;
+  }
+
+  /**
+   * Run a policy check and emit a POLICY_BLOCK log event on violation.
+   */
+  private runCheck(checkFn: () => void): void {
+    try {
+      checkFn();
+    } catch (e) {
+      if (e instanceof PolicyViolationError) {
+        logEvent({
+          type: 'policy_block',
+          tool: 'policy_engine',
+          error: e.reason,
+          text: `BLOCKED [${e.scope}]: ${e.reason}`,
+        });
+        throw e;
+      }
+      throw e;
+    }
   }
 }

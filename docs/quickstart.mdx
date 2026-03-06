@@ -1,0 +1,127 @@
+---
+title: Quickstart
+description: Go from zero to a running autonomous Solana agent in under 5 minutes.
+---
+
+
+## Prerequisites
+
+- Node.js ≥ 18
+- pnpm (`npm install -g pnpm`)
+- An XAI API key (or OpenAI/Anthropic) — only needed for the demo agent
+
+---
+
+## Option A — Via OpenClaw (fastest)
+
+If you're running an [OpenClaw](https://openclaw.dev) agent VM, run one command to install all three Glosso skills:
+
+```bash
+git clone https://github.com/ubadineke/glosso.git && cd glosso && bash install.sh
+```
+
+Then in the OpenClaw agent chat:
+
+> "I need a Solana wallet."
+
+The agent reads `SKILL.md`, asks which mode you want, runs the provision script, and reports your wallet address. No config editing required.
+
+---
+
+## Option B — Manual Setup
+
+<Steps>
+  <Step title="Clone and install">
+    ```bash
+    git clone https://github.com/ubadineke/glosso.git
+    cd glosso
+    pnpm install
+    ```
+  </Step>
+
+  <Step title="Provision a wallet">
+    Sovereign mode stores an AES-256-GCM encrypted mnemonic locally — no external accounts needed.
+
+    ```bash
+    npx tsx packages/cli/src/index.ts provision --mode sovereign
+    ```
+
+    Output:
+    ```
+    ✅ Wallet provisioned (sovereign)
+    Address:  Bf8PxxWt7VEi3m9aunc5MzRF1JYuBsbn6VPcn33UH
+    Balance:  2.00 SOL (devnet airdrop)
+    Network:  devnet
+
+    GLOSSO.md written → ./GLOSSO.md
+    ```
+
+    <Callout type="info">
+      The raw private key is never printed. Your mnemonic is encrypted with AES-256-GCM before storage. See [Security](/security) for details.
+    </Callout>
+  </Step>
+
+  <Step title="Check your wallet">
+    ```bash
+    npx tsx packages/cli/src/index.ts status
+    ```
+
+    ```
+    ┌─────────────────────────────────────────────────────┐
+    │  GLOSSO — Wallet Status                             │
+    ├─────────────────────────────────────────────────────┤
+    │  Mode:      sovereign                               │
+    │  Network:   devnet                                  │
+    │  Address:   Bf8PxxWt7...n33UH                       │
+    │  Balance:   2.000000 SOL                            │
+    └─────────────────────────────────────────────────────┘
+    ```
+  </Step>
+
+  <Step title="Run the demo agent">
+    The demo is a fully autonomous Drift trading agent that reads `GLOSSO.md` and executes a complete trading cycle without prompting.
+
+    ```bash
+    cd demo
+    cp .env.example .env
+    # Add your XAI_API_KEY to .env
+    pnpm install
+    npx tsx src/agent.ts
+    ```
+
+    In a second terminal, watch it live:
+
+    ```bash
+    npx tsx packages/cli/src/index.ts monitor
+    ```
+  </Step>
+</Steps>
+
+---
+
+## What Just Happened?
+
+When you ran `provision`:
+
+1. A BIP39 mnemonic was generated in-memory
+2. HD wallet paths were derived (`m/44'/501'/0'/0'` for Solana)
+3. The mnemonic was encrypted with AES-256-GCM using your chosen password
+4. Encrypted bytes were written to `~/.glosso/.env`
+5. A `GLOSSO.md` capability manifest was written your working directory
+6. A devnet airdrop was requested automatically
+
+When the agent runs:
+
+1. It reads `GLOSSO.md` — discovers the `glosso_balance`, `glosso_send`, and DeFi tools
+2. It calls those tools — which are backed by `@glosso/core`'s `GlossoWallet`
+3. Every sign goes through the policy engine (if configured), then to the signing backend
+4. Every action is logged to `~/.glosso/activity.log`
+
+---
+
+## Next Steps
+
+- **Set spend limits** — [Policy Engine](/policy/overview) → prevent runaway spending
+- **Switch to mainnet** — `glosso provision --mode sovereign --network mainnet-beta`
+- **Switch signing backend** — [Wallet Modes](/wallet-modes) → Privy or Turnkey for production
+- **Install skills** — [Skills](/skills/overview) → price feeds, swaps, DeFi

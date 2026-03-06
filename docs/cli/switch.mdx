@@ -1,0 +1,46 @@
+---
+title: glosso switch
+description: Activate an already-provisioned wallet mode.
+---
+
+
+## Usage
+
+```bash
+glosso switch [options]
+```
+
+## Options
+
+| Flag | Type | Description |
+|---|---|---|
+| `--mode` | `sovereign \| privy \| turnkey` | Mode to switch to |
+| `--list` | boolean | Show all provisioned modes |
+
+## Examples
+
+```bash
+# Switch to Privy
+glosso switch --mode privy
+
+# Switch back to sovereign
+glosso switch --mode sovereign
+
+# List available modes
+glosso switch --list
+```
+
+## Output
+
+```
+✅ Switched to privy
+Active wallet: EzwNi5jN2xTjaZRqAigXzKp4KyzcN8bXkwA1PHfckGo5
+```
+
+<Callout type="info">
+  Switching modes updates the `GLOSSO_MODE` value in `~/.glosso/.env`. The next time `GlossoWallet.fromEnv()` is called, it picks up the new mode automatically. Running agents need to be restarted.
+</Callout>
+
+<Callout type="warning">
+  You can only switch to a mode that has already been provisioned. If you haven't run `glosso provision --mode privy` yet, switching to `privy` will fail.
+</Callout>

@@ -1,0 +1,65 @@
+---
+title: glosso provision
+description: Generate, encrypt, and store a new Solana wallet.
+---
+
+
+## Usage
+
+```bash
+npx tsx packages/cli/src/index.ts provision [options]
+# or if installed globally:
+glosso provision [options]
+```
+
+## Options
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--mode` | `sovereign \| privy \| turnkey` | `sovereign` | Signing backend to provision |
+| `--network` | `devnet \| mainnet-beta` | `devnet` | Solana network |
+| `--name` | string | — | Optional label for this wallet |
+
+## What It Does
+
+1. Generates a BIP39 mnemonic in-memory
+2. Derives Solana HD paths (`m/44'/501'/0'/0'`)
+3. Encrypts the mnemonic (AES-256-GCM for sovereign mode)
+4. Writes credentials to `~/.glosso/.env`
+5. Writes a `GLOSSO.md` capability manifest to the current working directory
+6. Requests a devnet airdrop (devnet only)
+
+## Examples
+
+```bash
+# Sovereign on devnet (default)
+glosso provision --mode sovereign
+
+# Sovereign on mainnet
+glosso provision --mode sovereign --network mainnet-beta
+
+# Privy TEE-backed wallet
+glosso provision --mode privy
+
+# Turnkey HSM-backed wallet
+glosso provision --mode turnkey
+```
+
+## Output
+
+```
+✅ Wallet provisioned (sovereign)
+Address:  Bf8PxxWt7VEi3m9aunc5MzRF1JYuBsbn6VPcn33UH
+Balance:  2.00 SOL (devnet airdrop)
+Network:  devnet
+
+GLOSSO.md written → ./GLOSSO.md
+```
+
+<Callout type="warning">
+  The raw mnemonic is never printed to the terminal. Your seed is encrypted before storage. Do not run `provision` in a directory that is synced to cloud storage or committed to version control.
+</Callout>
+
+<Callout type="info">
+  If the devnet airdrop is rate-limited, the wallet is still provisioned. The balance will show as 0 SOL. Request an airdrop manually from [faucet.solana.com](https://faucet.solana.com) using your provisioned address.
+</Callout>

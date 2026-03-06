@@ -26,7 +26,8 @@ export type ActivityEventType =
   | 'tool_error'
   | 'wallet_sign'
   | 'price_check'
-  | 'balance_check';
+  | 'balance_check'
+  | 'policy_block';
 
 export interface ActivityEvent {
   type: ActivityEventType;

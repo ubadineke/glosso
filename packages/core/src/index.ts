@@ -1,5 +1,5 @@
 // @glosso/core — public API exports
-export { GlossoWallet } from './glosso';
+export { GlossoWallet, ScopedGlossoWallet } from './glosso';
 export type { GlossoDriftWallet } from './glosso';
 export { SovereignAdapter } from './adapters/sovereign';
 export { PrivyAdapter } from './adapters/privy';
@@ -30,3 +30,21 @@ export {
   setSessionId,
 } from './utils/logger';
 export type { ActivityEvent, ActivityEventType, LogEntry } from './utils/logger';
+
+// Policy Engine
+export { PolicyEngine } from './policy/engine';
+export { PolicyStateManager } from './policy/state';
+export {
+  PolicyViolationError,
+  type PolicyConfig,
+  type PolicyPersistenceOptions,
+  type PolicyState,
+  type TxRecord,
+  type ActiveHours,
+} from './policy/types';
+export {
+  extractProgramIds,
+  extractSolAmount,
+  countInstructions,
+  hasMemoInstruction,
+} from './policy/parser';

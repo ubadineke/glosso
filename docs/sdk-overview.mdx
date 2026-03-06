@@ -1,0 +1,144 @@
+---
+title: SDK Overview
+description: "@glosso/core — the TypeScript SDK that powers every Glosso integration."
+---
+
+
+`@glosso/core` is the package behind the CLI, the demo agent, and any custom integration you build. It exposes three main surfaces: the wallet, the policy engine, and the activity logger.
+
+---
+
+## GlossoWallet
+
+The central object. Wraps the signing backend of your choice and exposes a unified interface.
+
+```typescript
+import { GlossoWallet } from '@glosso/core';
+
+// Load from environment (mode is read from GLOSSO_MODE in .env)
+const wallet = await GlossoWallet.fromEnv();
+
+console.log(wallet.publicKey.toBase58()); // your wallet address
+console.log(await wallet.getBalance());   // SOL balance as number
+```
+
+### Signing
+
+```typescript
+import { Transaction } from '@solana/web3.js';
+
+const tx = new Transaction().add(/* your instruction */);
+const signedTx = await wallet.signTransaction(tx);
+```
+
+`signTransaction` works the same whether the backing mode is sovereign, Privy, or Turnkey. The adapter handles the difference.
+
+### Sending SOL
+
+```typescript
+const result = await wallet.send(recipientAddress, 0.01 * 1e9); // lamports
+console.log(result.signature);
+console.log(result.explorer); // Solana explorer link
+```
+
+### Sub-wallets
+
+Sovereign mode derives multiple keypairs from the same seed. Pass an index to operate on a specific sub-wallet:
+
+```typescript
+const tradingWallet = await GlossoWallet.fromEnv({ index: 1 });
+const vaultWallet   = await GlossoWallet.fromEnv({ index: 2 });
+```
+
+---
+
+## withPolicy — Scoped Wallet
+
+Wrap any `GlossoWallet` with a `PolicyConfig` to get a `ScopedGlossoWallet` that enforces spend limits, rate limits, and program allowlists before every sign.
+
+```typescript
+import { GlossoWallet, PolicyViolationError } from '@glosso/core';
+
+const wallet = await GlossoWallet.fromEnv();
+
+const scoped = wallet.withPolicy({
+  maxSolPerTx: 0.5,
+  maxSolPerDay: 3.0,
+  maxTxPerHour: 5,
+  allowedPrograms: [
+    '11111111111111111111111111111111',                      // System Program
+    'dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH',        // Drift
+    'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4',        // Jupiter
+  ],
+});
+
+// All subsequent calls enforce the policy
+try {
+  await scoped.send(recipient, 1.0 * 1e9); // 1 SOL — blocked if > maxSolPerTx
+} catch (e) {
+  if (e instanceof PolicyViolationError) {
+    console.log(e.scope);  // 'MAX_SOL_PER_TX'
+    console.log(e.reason); // '1.0000 SOL exceeds per-tx limit of 0.5 SOL'
+  }
+}
+```
+
+See [Policy Engine](/policy/overview) for all available scopes.
+
+---
+
+## Activity Logger
+
+Every wallet action is automatically logged to `~/.glosso/activity.log` as JSON Lines. You can also emit custom events:
+
+```typescript
+import { logEvent } from '@glosso/core';
+
+logEvent({
+  type: 'agent_start',
+  mode: 'sovereign',
+  network: 'devnet',
+  model: 'grok-2',
+});
+```
+
+The logger is additive — existing log entries are never modified. The TUI monitor (`glosso monitor`) tails this file in real time.
+
+---
+
+## Reading GLOSSO.md
+
+When you provision, a `GLOSSO.md` is written to the working directory. In your agent, pass it as a system prompt section:
+
+```typescript
+import fs from 'fs';
+
+const glossoMd = fs.existsSync('./GLOSSO.md')
+  ? fs.readFileSync('./GLOSSO.md', 'utf-8')
+  : '';
+
+const systemPrompt = `You are an autonomous Solana agent.\n\n${glossoMd}`;
+```
+
+This gives the agent a complete, accurate capability manifest without hardcoding tool descriptions in the prompt.
+
+---
+
+## Package Structure
+
+```
+@glosso/core
+├── GlossoWallet         — unified wallet adapter
+├── ScopedGlossoWallet   — GlossoWallet + PolicyEngine
+├── PolicyEngine         — checks tx before every sign
+├── PolicyStateManager   — sliding window counters
+├── PolicyViolationError — structured violation errors
+├── logEvent             — write to activity.log
+└── parser utils         — extractProgramIds, extractSolAmount, ...
+```
+
+---
+
+<Callout type="info">
+  `@glosso/core` is a workspace package. In external projects, install it directly from GitHub or npm once published. For the monorepo, it's already wired via `pnpm` workspaces.
+</Callout>

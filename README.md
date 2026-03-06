@@ -6,230 +6,170 @@
 
 ---
 
-![Glosso Comparison](/glosso-comparison.png)
-
-## The Problem
-
-AI agents on Solana can analyze markets, generate trade signals, and construct transactions — but when it comes to actually signing and sending them, most architectures require a human to click approve. The key lives in a `.env` file the agent can read, which means the private key sits in the agent's context. One prompt injection, one dependency compromise, and the wallet is gone.
-
-The missing primitive is not just "a wallet the agent can use." It is **wallet infrastructure designed from the ground up for autonomous operation** — where key material never appears in the agent's context, where the signing method can be swapped without rewriting a single tool, and where the agent's capabilities are declared in a machine-readable file it can read and reason over.
-
-That is what Glosso is.
+<!-- diagram: problem-vs-solution -->
+![Glosso — Autonomous vs Human-Gated](./packages/assets/glosso-comparison.png)
 
 ---
 
-## What Glosso Does
+## How It Works
 
-An agent built on Glosso follows a clean two-phase lifecycle:
+Glosso's lifecycle is two phases. Operators run phase one once. Agents run phase two forever.
 
-**Phase 1 — Provision (one time, by the operator):**
+<!-- diagram: two-phase lifecycle (docs/glosso-lifecycle.png) -->
+
+**Phase 1 — Provision (operator, one time)**
+
 ```bash
-npx glosso provision --mode sovereign
+glosso provision --mode sovereign
 ```
-The CLI generates a wallet, encrypts the keys, writes minimal config to `.env`, and drops a `GLOSSO.md` capability manifest into the agent's working directory. The raw private key is never printed. The operator sees only the public address.
 
-**Phase 2 — Runtime (fully autonomous):**
-The agent reads `GLOSSO.md` to discover what it can do, then calls wallet operations through the Glosso SDK. It signs transactions, sends SOL, opens Drift perpetual positions, and queries prices from Pyth — all without human input.
+Generates a wallet, encrypts keys, writes config to `.env`, and drops a `GLOSSO.md` capability manifest into the working directory. The raw private key is never printed.
 
-```
-Agent reads GLOSSO.md → discovers capabilities
-       ↓
-Agent calls glosso.sign(tx)
-       ↓
-Glosso routes to the configured adapter (sovereign / privy / turnkey)
-       ↓
-Adapter signs in an isolated context → key material discarded
-       ↓
-Signed transaction broadcast to Solana
-```
+**Phase 2 — Runtime (agent, autonomous)**
+
+The agent reads `GLOSSO.md`, discovers its tools, and operates — sign, send, trade — without human input. Changing the signing backend (sovereign → privy → turnkey) requires only a config change, never a code change.
+
 
 ---
 
 ## Wallet Modes
 
-Glosso has three signing backends, selectable at provision time and hot-swappable at runtime. The agent's code doesn't change between them — only the `.env` config does.
+Three signing backends. Pick at provision time, switch any time. Agent code never changes.
 
-### Sovereign
-The fully self-custodial mode. A BIP39 mnemonic is generated locally, encrypted with AES-256-GCM, and stored in `.env`. Every sign call goes through a **decrypt → derive → sign → discard** cycle. The private key exists only for the duration of a single function call, then goes out of scope.
+<!-- diagram: key storage side-by-side (docs/glosso-modes.png) -->
 
-Best for: development, trusted server environments, operators who want zero external dependencies.
+| Mode | Key Storage | Best For |
+|---|---|---|
+| **Sovereign** | Encrypted locally (AES-256-GCM) | Dev, trusted servers, zero external deps |
+| **Privy** | Privy TEE (Trusted Execution Environment) | Production cloud, enterprise key management |
+| **Turnkey** | HSM via Turnkey API | Scale, compliance, policy controls (spend limits, allowlists) |
 
-### Privy
-Keys are held in Privy's Trusted Execution Environments. Signing happens via Privy's REST API — the agent sends an unsigned transaction, Privy signs it inside the enclave and returns the signed bytes. The private key never exists outside the TEE.
-
-Best for: production agents, cloud deployments, teams that want enterprise key management without running their own HSM.
-
-### Turnkey
-HSM-backed signing through Turnkey's stamped API. Sub-100ms signing latency, policy-gated operations, full audit trail. The agent authenticates with an API key pair; Turnkey's HSMs handle the actual ed25519 signing.
-
-Best for: production at scale, compliance requirements, agents that need policy controls (spending limits, allowlists).
-
-### Switching Modes
 ```bash
-npx glosso switch --mode turnkey
-# Your active wallet is now EzwNi5jN2xTjaZRqAigXzKp4KyzcN8bXkwA1PHfckGo5
+glosso switch --mode privy
+# Active wallet: EzwNi5jN2xTjaZRqAigXzKp4KyzcN8bXkwA1PHfckGo5
 ```
 
-The switch command updates `GLOSSO_MODE` in `.env` and logs the new wallet address. All subsequent operations route to the new adapter.
+> For the full sovereign security model — key derivation, AES-256-GCM details, threat analysis — see [SECURITY.md](SECURITY.md).
 
 ---
 
-## The Signing Abstraction
+## Skills
 
-Every adapter implements the same `WalletAdapter` interface:
+Glosso's capabilities are modular. Each skill ships a `SKILL.md` manifest the agent reads at startup to discover exactly what it can do.
 
-```typescript
-interface WalletAdapter {
-  getAddress(index?: number): Promise<string>;
-  getBalance(index?: number): Promise<number>;
-  sign(tx: Transaction, index?: number): Promise<Transaction>;
-  signVersioned(tx: VersionedTransaction, index?: number): Promise<VersionedTransaction>;
-  send(to: string, lamports: number, index?: number): Promise<string>;
-}
-```
+<!-- diagram: SKILL.md → agent → tool calls → Solana (docs/glosso-skills.png) -->
 
-On top of this, `GlossoWallet` exposes `signAny()` and `toDriftWallet()` — the latter producing a fully Drift SDK-compatible `IWallet` object, allowing Glosso-managed wallets to be passed directly into Drift's transaction handler without any adapter code in the agent.
-
-The type detection is automatic:
-
-```typescript
-signAny(tx: AnyTransaction) {
-  return isVersionedTx(tx)
-    ? this.adapter.signVersioned(tx)
-    : this.adapter.sign(tx);
-}
-```
-
----
-
-## Sovereign Security Model
-
-Since the sovereign adapter handles cryptography entirely in software, it is worth understanding exactly what it protects against and where the limits are.
-
-### Key Derivation Path
-
-```
-Passphrase (from .env)
-    ↓
-PBKDF2-SHA256  (100,000 iterations, 32-byte random salt)
-    ↓
-AES-256 key (32 bytes)
-    ↓  decrypt
-Encrypted blob in .env: base64( salt[32] | iv[16] | authTag[16] | ciphertext )
-    ↓
-BIP39 mnemonic (lives in function scope only)
-    ↓
-mnemonicToSeedSync() → 64-byte seed
-    ↓
-SLIP-0010 derivation  m/44'/501'/{index}'/0'
-    ↓
-Ed25519 keypair → sign → keypair goes out of scope
-```
-
-AES-256-GCM provides both confidentiality and integrity. The auth tag means that any modification to the encrypted blob — a single flipped bit — causes decryption to throw rather than produce a corrupted key. PBKDF2 at 100K iterations adds ~100ms per decrypt, which is negligible for agent operations but makes brute-forcing the passphrase computationally expensive.
-
-### HD Wallet Structure
-
-One mnemonic derives unlimited independent wallets:
-
-```
-Mnemonic ──┬── m/44'/501'/0'/0'  →  Primary wallet
-           ├── m/44'/501'/1'/0'  →  Trading wallet
-           ├── m/44'/501'/2'/0'  →  Vault wallet
-           └── m/44'/501'/N'/0'  →  Any purpose
-```
-
-Each index produces a fully independent Ed25519 keypair. Knowing one sub-wallet's private key reveals nothing about any other index or the root mnemonic. Derivation is hardened at every level.
-
-### What It Protects Against
-
-| Threat | Protection |
+| Skill | What it does |
 |---|---|
-| `.env` file read without passphrase | AES-256-GCM encryption — ciphertext is useless without the key |
-| Ciphertext tampering | GCM auth tag — modified blobs fail to decrypt |
-| Passphrase brute-force | PBKDF2 with 100K iterations — ~$1M+ compute to crack a strong passphrase |
-| Key appearing in logs or API responses | Key is never returned from any function — only signatures are |
-| One sub-wallet revealing another | Hardened SLIP-0010 derivation — mathematically isolated |
+| **glosso-wallet** | SOL balance, send transfers, transaction history |
+| **glosso-pyth** | Real-time price feeds — SOL, BTC, ETH, USDC, JUP, BONK and more |
+| **glosso-jupiter** | Token swap quotes and execution via Jupiter aggregator |
 
-### Honest Limits
-
-The sovereign adapter is software. If the Node.js process is compromised (malicious dependency, attached debugger, memory dump), key material could be read from the heap during a sign call. For agents handling significant value, use Privy or Turnkey mode — both push signing into hardened environments that are isolated from the application process.
-
-If you store `GLOSSO_ENCRYPTION_PASSPHRASE` and `GLOSSO_MASTER_SEED_ENCRYPTED` in the same `.env` file on the same machine, they should both be exfiltrated for a full compromise. Separate them — put the passphrase in a secrets manager and only the encrypted seed in `.env`.
+When a wallet is provisioned, a `GLOSSO.md` is written to the working directory listing every installed skill and its functions. The agent reads this once at startup — no hardcoded capability lists in prompts.
 
 ---
 
-## The Skill System
+## Setup with OpenClaw
 
-Glosso's capabilities are modular and agent-discoverable. Each skill is a self-contained package with a `SKILL.md` manifest that an LLM can read directly to understand what tools are available and how to use them.
+The fastest path to a Glosso wallet is through [OpenClaw](https://openclaw.dev). Run one command on your OpenClaw VM to install all three skills:
 
-### Available Skills
-
-**glosso-wallet** — Core wallet operations
-- Check SOL and SPL token balances
-- Send SOL transfers to any address
-- Query transaction history
-
-**glosso-pyth** — Real-time price feeds via Pyth Network's Hermes API
-- Fetches prices for SOL, BTC, ETH, USDC, JUP, BONK, WIF, and more
-- No API key required — read-only, Pyth is public infrastructure
-
-**glosso-jupiter** — Token swaps via Jupiter aggregator
-- Get swap quotes across all Jupiter-supported routes
-- Execute swaps with configured slippage tolerance
-
-**glosso-drift** — Perpetual futures trading on Drift Protocol
-- Deposit and withdraw collateral
-- Open and close SOL-PERP positions (long/short)
-- Query open positions and unrealized PnL
-
-### How Skills Wire Into Agents
-
-When the CLI provisions a wallet, it writes a `GLOSSO.md` file into the agent's working directory. This file lists all installed skills and their available functions. The agent's system prompt instructs it to read this file at startup, so it always knows exactly what it can and can't do — without hardcoding capability lists in prompts.
-
-```markdown
-## Available Skills
-- **glosso-drift** — Drift perpetual futures: deposit_collateral, open_perp_position,
-  get_position, close_perp_position
-- **glosso-pyth** — Price feeds: get_sol_price
+```bash
+git clone https://github.com/ubadineke/glosso.git && cd glosso && bash install.sh
 ```
 
-The agent model reads this and generates tool calls accordingly. Adding a new skill is as simple as running its setup script — the capability file is regenerated and the agent picks it up on next start.
+This installs `glosso-wallet`, `glosso-pyth`, and `glosso-jupiter` into `~/.openclaw/skills/`, then restart your OpenClaw gateway.
+
+Then in the agent chat:
+
+> "I need a Solana wallet."
+
+The agent reads `SKILL.md`, asks which mode (sovereign/privy/turnkey), runs the provision script, and reports your wallet address. No config editing, no key management.
+
+<!-- diagram: install.sh → SKILL.md → agent provisions → GLOSSO.md written (docs/glosso-openclaw.png) -->
+
+---
+
+## Demo — Autonomous Trading Agent
+
+`demo/src/agent.ts` is a fully autonomous Drift trading agent. It reads `GLOSSO.md`, discovers its tools, then executes a complete trading cycle without prompting.
+
+<!-- diagram: agent loop — GLOSSO.md → price check → deposit → open → close → log (docs/glosso-agent-loop.png) -->
+
+**What the agent does in one session:**
+1. Fetches live SOL price from Pyth
+2. Deposits collateral into Drift
+3. Opens a SOL-PERP long or short based on signal
+4. Monitors position PnL
+5. Closes the position
+6. Logs every step to `~/.glosso/activity.log`
+
+**Run it:**
+
+```bash
+# Terminal 1 — provision and run the agent
+git clone https://github.com/ubadineke/glosso && cd glosso
+pnpm install
+npx tsx packages/cli/src/index.ts provision --mode sovereign
+
+cd demo && cp .env.example .env   # add your XAI_API_KEY
+npx tsx src/agent.ts
+
+# Terminal 2 — watch it live
+glosso monitor
+```
+
+---
+
+## Quick Start (Self-Hosted)
+
+For developers integrating Glosso directly or contributing to the repo.
+
+**Prerequisites:** Node.js 18+, pnpm
+
+```bash
+git clone https://github.com/ubadineke/glosso
+cd glosso
+pnpm install
+
+# Provision a wallet
+npx tsx packages/cli/src/index.ts provision --mode sovereign
+
+# Verify
+npx tsx packages/cli/src/index.ts status
+```
 
 ---
 
 ## CLI Reference
 
 ```bash
-# Provision a new wallet
-npx glosso provision --mode sovereign|privy|turnkey [--network devnet|mainnet-beta]
+# Provision a wallet
+glosso provision --mode sovereign|privy|turnkey [--network devnet|mainnet-beta]
 
-# Check current wallet status
-npx glosso status
+# Check active wallet
+glosso status
 
-# Switch active wallet mode
-npx glosso switch --mode <mode>
+# Switch signing mode
+glosso switch --mode <mode>
 
 # View activity logs
-npx glosso logs                          # all events
-npx glosso logs --tail 50               # last 50 events
-npx glosso logs --follow                 # live tail (like tail -f)
-npx glosso logs --sessions               # list all sessions
-npx glosso logs --session <id>          # filter to one session
+glosso logs                   # all events
+glosso logs --tail 50         # last 50
+glosso logs --follow          # live tail
+glosso logs --sessions        # list sessions
+glosso logs --session <id>    # filter to one session
 
-# Launch TUI dashboard
-npx glosso monitor
+# TUI dashboard
+glosso monitor
 ```
 
 ---
 
-## Activity Monitoring
+## Monitoring
 
-Every agent operation — tool calls, results, thinking steps, transaction signatures — is written to `~/.glosso/activity.log` as append-only JSON Lines. Two observability layers read from this file:
+Every tool call, transaction signature, thinking step, and error is written to `~/.glosso/activity.log` as append-only JSON Lines.
 
-### CLI Log Viewer (`glosso logs`)
-
-Color-coded, human-readable log tail. Good for quick inspection after a session or piping into grep.
+**`glosso logs`** — color-coded terminal tail:
 
 ```
 16:37:44 [demo-sv01]  START  sovereign • 9w56ob…5sPT • devnet
@@ -242,100 +182,64 @@ Color-coded, human-readable log tail. Good for quick inspection after a session 
 16:37:44 [demo-sv01]   ✅  closed market #0  7pFnLm…aC3d  ↗ explorer
 ```
 
-### TUI Dashboard (`glosso monitor`)
+**`glosso monitor`** — full-terminal Ink/React dashboard with live file watching:
 
-A full-terminal Ink/React dashboard with live file watching. Panels:
-
-- **Header** — mode (color-coded), short address, network, live spinner, clock
-- **Wallet Panel** — current SOL balance, open position (direction/size/PnL), agent round counter
-- **Activity Feed** — scrolling event feed with icons, tool results, agent reasoning, explorer links
-- **Price Chart** — SOL/USD sparkline + bar chart from price feed calls. Shows high/low, % change direction, and a TX success/failure rate bar
-- **Status Bar** — animated pulse, TX count, error count, last tool result
-
-```bash
-# Run the dashboard (requires a real terminal TTY, not redirected output)
-npx tsx packages/monitor/src/index.tsx
-
-# Live demo with events dripping in real time
-npx tsx scripts/test-logger.ts --clean --live   # second terminal
-```
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+
-- pnpm (`npm install -g pnpm`)
-
-### Install
-
-```bash
-git clone https://github.com/ubadineke/glosso
-cd glosso
-pnpm install
-```
-
-### Provision a wallet
-
-```bash
-# Sovereign mode (self-custodial, good for dev)
-npx tsx packages/cli/src/index.ts provision --mode sovereign
-
-# Check what you provisioned
-npx tsx packages/cli/src/index.ts status
-```
-
-This generates a `GLOSSO.md` in your working directory and writes the encrypted seed + config to `.env`.
-
-### Run the demo agent
-
-The demo in `demo/src/agent.ts` is a fully autonomous Drift trading agent. It reads from `GLOSSO.md`, discovers its capabilities, and executes a full trading cycle — price check → deposit collateral → open position → monitor → close.
-
-```bash
-cd demo
-cp .env.example .env   # fill in your keys
-npx tsx src/agent.ts
-```
-
-While it runs, watch the activity in real time:
-```bash
-npx tsx packages/cli/src/index.ts logs --follow
-```
+- **Header** — mode, short address, network, clock
+- **Wallet Panel** — SOL balance, open position, agent round
+- **Activity Feed** — scrolling events with icons, results, explorer links
+- **Price Chart** — SOL/USD sparkline, high/low, TX success rate
+- **Status Bar** — TX count, error count, last result
 
 ---
 
 ## Environment Variables
 
-The `.env` is section-based — each wallet mode has its own block, and only the active mode's keys are read at runtime.
+Section-based `.env` — only the active mode's block is read at runtime.
 
 ```bash
-GLOSSO_MODE=sovereign            # active mode: sovereign | privy | turnkey
+GLOSSO_MODE=sovereign            # sovereign | privy | turnkey
 GLOSSO_NETWORK=devnet            # devnet | mainnet-beta
 
-# ── Sovereign ──────────────────────────────────────────────
+# ── Sovereign ──────────────────────────────────────────
 GLOSSO_MASTER_SEED_ENCRYPTED=<base64 encrypted blob>
 GLOSSO_ENCRYPTION_PASSPHRASE=<strong passphrase>
 SOVEREIGN_WALLET_ADDRESS=<derived public key>
 
-# ── Privy ──────────────────────────────────────────────────
+# ── Privy ──────────────────────────────────────────────
 PRIVY_APP_ID=<app id>
 PRIVY_APP_SECRET=<app secret>
 PRIVY_WALLET_ID=<wallet id>
 PRIVY_WALLET_ADDRESS=<wallet address>
 
-# ── Turnkey ────────────────────────────────────────────────
+# ── Turnkey ────────────────────────────────────────────
 TURNKEY_API_PUBLIC_KEY=<key>
 TURNKEY_API_PRIVATE_KEY=<key>
 TURNKEY_ORGANIZATION_ID=<org id>
 TURNKEY_WALLET_ADDRESS=<address>
 
-# ── Agent / LLM ────────────────────────────────────────────
-XAI_API_KEY=<grok key>           # or OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.
+# ── Agent / LLM ────────────────────────────────────────
+XAI_API_KEY=<grok key>           # or OPENAI_API_KEY, ANTHROPIC_API_KEY
 ```
 
-Production note: separate `GLOSSO_ENCRYPTION_PASSPHRASE` from the rest — store it in a secrets manager (AWS Secrets Manager, Doppler, Vault) and inject it at runtime rather than keeping it in the `.env` file.
+> Production tip: store `GLOSSO_ENCRYPTION_PASSPHRASE` in a secrets manager (Doppler, AWS Secrets Manager, Vault) and inject at runtime — keep it out of the `.env` file.
+
+---
+
+## Security
+
+The sovereign adapter uses AES-256-GCM + PBKDF2 (100K iterations). The private key exists only in function scope during a sign call — it is never returned, logged, or persisted.
+
+| Threat | Protection |
+|---|---|
+| `.env` read without passphrase | AES-256-GCM — ciphertext is useless without the key |
+| Ciphertext tampering | GCM auth tag — modified blobs fail to decrypt |
+| Passphrase brute-force | PBKDF2 100K iterations |
+| Key appearing in logs | Key is never returned — only signatures are |
+| One sub-wallet revealing another | Hardened SLIP-0010 derivation |
+
+For process-level compromise or high-value deployments, use Privy or Turnkey — signing happens in hardware-isolated environments outside the application process.
+
+Full details: [SECURITY.md](SECURITY.md)
 
 ---
 
@@ -344,46 +248,25 @@ Production note: separate `GLOSSO_ENCRYPTION_PASSPHRASE` from the rest — store
 ```
 glosso/
 ├── packages/
-│   ├── core/          @glosso/core — wallet adapters, signing, cryptography, logger
-│   ├── cli/           @glosso/cli  — provisioning and observability CLI
-│   ├── monitor/       @glosso/monitor — Ink TUI dashboard
+│   ├── core/       @glosso/core  — wallet adapters, signing, crypto, logger
+│   ├── cli/        @glosso/cli   — provision, status, switch, logs, monitor
+│   ├── monitor/    @glosso/monitor — Ink TUI dashboard
 │   └── skills/
-│       ├── glosso-wallet/    SOL transfers and balance queries
-│       ├── glosso-pyth/      Pyth price feeds
-│       ├── glosso-jupiter/   Jupiter swaps
-│       └── glosso-drift/     Drift perpetuals (in demo/src/tools.ts)
-├── demo/              Reference agent (Drift trading, full cycle)
-└── scripts/           Dev utilities (test data generation, etc.)
+│       ├── glosso-wallet/
+│       ├── glosso-pyth/
+│       ├── glosso-jupiter/
+├── demo/           Reference agent — Drift trading, full cycle
+└── scripts/        Dev utilities — test data generation
 ```
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Runtime | Node.js 24, TypeScript |
-| Monorepo | pnpm workspaces |
-| Solana SDK | `@solana/web3.js` v1 |
-| Drift | `@drift-labs/sdk` v2 |
-| Key derivation | `bip39`, `ed25519-hd-key` (SLIP-0010) |
-| Encryption | Node.js built-in `crypto` (AES-256-GCM, PBKDF2) |
-| Privy | Privy REST API (embedded wallets) |
-| Turnkey | `@turnkey/sdk-server`, `@turnkey/solana` |
-| Price feeds | Pyth Network Hermes API |
-| CLI | `commander` |
-| TUI | Ink v4 (React for terminals) |
-| LLM | xAI Grok (configurable — any OpenAI-compatible endpoint) |
-
 ---
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md) for the full plan. Key upcoming items:
+See [ROADMAP.md](ROADMAP.md) for the full plan.
 
-- **Remote secrets** — `glosso provision --from-doppler` / `--from-gist` for fresh VM deployments
-- **ClawHub publishing** — `npx clawhub publish glosso-jupiter` to push skills to the OpenClaw registry
-- **Web dashboard** — browser-based equivalent of the TUI, served locally
-- **Multi-agent view** — aggregate multiple agent sessions in one monitor pane
-- **Position risk controls** — max collateral, daily loss limits, configurable in `.env`
-- **Additional skills** — MarginFi (lending), Orca (LP management), Tensor (NFTs)
+- **Remote secrets** — `glosso provision --from-doppler` / `--from-gist`
+- **ClawHub publishing** — push skills to the OpenClaw registry
+- **Web dashboard** — browser-based equivalent of the TUI
+- **Multi-agent view** — aggregate multiple sessions in one monitor pane
+- **Position risk controls** — max collateral, daily loss limits in `.env`
+- **Additional skills** — MarginFi (lending), Orca (LP), Tensor (NFTs)

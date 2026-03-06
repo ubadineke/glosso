@@ -1,0 +1,171 @@
+---
+title: glosso policy
+description: Manage scoped permissions, spend limits, and the kill switch.
+---
+
+
+## Usage
+
+```bash
+glosso policy <subcommand> [options]
+```
+
+## Subcommands
+
+### `status`
+
+Show the current policy configuration and rolling counters.
+
+```bash
+glosso policy status
+```
+
+```
+╔══════════════════════════════════════════════╗
+║   GLOSSO — Policy Status                     ║
+╚══════════════════════════════════════════════╝
+
+  ✅ STATUS: Active
+
+  ── Spend Limits ──────────────────────────────
+    Per TX:       0.5 SOL
+    Per Day:      3 SOL
+    Per Week:     unlimited
+    Per Session:  unlimited
+
+  ── Rate Limits ───────────────────────────────
+    Per Hour:     5
+    Per Day:      unlimited
+
+  ── Programs ──────────────────────────────────
+    Allowed (3):
+      ✓ 11111111111111111111111111111111
+      ✓ dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH
+      ✓ JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4
+
+  ── Time Controls ─────────────────────────────
+    Active Hours: 8:00–22:00 UTC
+
+  Policy file: /Users/you/.glosso/policy.json
+```
+
+---
+
+### `set <KEY> <value>`
+
+Set a policy limit. Changes take effect on the next agent action — no restart needed.
+
+```bash
+glosso policy set MAX_SOL_PER_TX 0.5
+glosso policy set MAX_SOL_PER_DAY 3.0
+glosso policy set MAX_TX_PER_HOUR 5
+glosso policy set MAX_TX_PER_DAY 20
+glosso policy set ACTIVE_HOURS_FROM 8
+glosso policy set ACTIVE_HOURS_TO 22
+glosso policy set ACTIVE_DAYS mon,tue,wed,thu,fri
+glosso policy set REQUIRE_MEMO true
+glosso policy set EXPIRES_AT 2025-12-31
+```
+
+**Valid keys:**
+
+| Key | Type | Description |
+|---|---|---|
+| `MAX_SOL_PER_TX` | number | Max SOL per single transaction |
+| `MAX_SOL_PER_DAY` | number | Max SOL in any rolling 24h window |
+| `MAX_SOL_PER_WEEK` | number | Max SOL in any rolling 7-day window |
+| `MAX_SOL_PER_SESSION` | number | Max SOL for the current process lifetime |
+| `MAX_TX_PER_HOUR` | number | Max transactions in any 60-minute window |
+| `MAX_TX_PER_DAY` | number | Max transactions in any 24-hour window |
+| `MAX_TX_PER_SESSION` | number | Max transactions this process may sign |
+| `MAX_INSTRUCTIONS_PER_TX` | number | Max instructions per transaction |
+| `MAX_UNIQUE_RECIPIENTS_PER_DAY` | number | Max distinct recipients per day |
+| `MAX_SESSION_DURATION_HOURS` | number | Auto-expire scoped wallet after N hours |
+| `ACTIVE_HOURS_FROM` | 0–23 | Start of permitted signing window (UTC) |
+| `ACTIVE_HOURS_TO` | 0–23 | End of permitted signing window (UTC) |
+| `ACTIVE_DAYS` | comma-separated | Days of week: `mon,tue,wed,thu,fri,sat,sun` |
+| `EXPIRES_AT` | ISO date string | Hard cutoff for all signing |
+| `STARTS_AT` | ISO date string | Scheduled activation |
+| `REQUIRE_MEMO` | `true \| false` | Require memo instruction on every tx |
+
+---
+
+### `allow-program <programId>`
+
+Add a Solana program to the allowlist. When `allowedPrograms` is non-empty, any transaction that includes a program **not** on this list is rejected.
+
+```bash
+glosso policy allow-program dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH
+glosso policy allow-program JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4
+glosso policy allow-program 11111111111111111111111111111111
+```
+
+---
+
+### `deny-program <programId>`
+
+Remove a program from the allowlist.
+
+```bash
+glosso policy deny-program dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH
+```
+
+---
+
+### `allow-recipient <address>` / `block-recipient <address>`
+
+Whitelist or blocklist specific recipient addresses.
+
+```bash
+glosso policy allow-recipient 7nYfs5EkxcfKwTUK9PcKjjQvifP45sWVT1p6KMeKxKi
+glosso policy block-recipient SuspiciousAddressHere
+```
+
+When `allowedRecipients` is non-empty, SOL may only be sent to addresses on that list.
+
+---
+
+### `pause` / `resume`
+
+Hard kill switch — blocks all signing immediately regardless of config.
+
+```bash
+glosso policy pause     # ⛔ All signing suspended
+glosso policy resume    # ✅ Signing resumed
+```
+
+<Callout type="warning">
+  `pause` takes effect on the **next** agent action. If a transaction is already in-flight when you run `pause`, it will complete. The engine re-reads `policy.json` before every sign.
+</Callout>
+
+---
+
+### `reset-counters`
+
+Clear all rolling counters (tx history, session stats). Does not reset the policy config.
+
+```bash
+glosso policy reset-counters
+```
+
+---
+
+## Config File
+
+All policy commands read and write `~/.glosso/policy.json`. You can also edit it directly:
+
+```json
+{
+  "maxSolPerTx": 0.5,
+  "maxSolPerDay": 3.0,
+  "maxTxPerHour": 5,
+  "allowedPrograms": [
+    "11111111111111111111111111111111",
+    "dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH"
+  ],
+  "activeHours": { "from": 8, "to": 22, "timezone": "UTC" },
+  "paused": false
+}
+```
+
+`null` means unlimited. All fields are optional.

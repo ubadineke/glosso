@@ -1,0 +1,80 @@
+---
+title: glosso-jupiter
+description: Token swap quotes and execution via the Jupiter aggregator.
+---
+
+
+Token swaps on Solana via [Jupiter](https://jup.ag) — the leading DEX aggregator. Jupiter routes your swap across multiple liquidity sources to find the best price.
+
+---
+
+## Functions
+
+### `glosso_quote(inputMint, outputMint, amount)`
+
+Get a swap quote without executing.
+
+**Script:** `tsx scripts/quote.ts <inputMint> <outputMint> <amount>`
+
+| Parameter | Type | Description |
+|---|---|---|
+| `inputMint` | string | Token mint address you're selling |
+| `outputMint` | string | Token mint address you're buying |
+| `amount` | number | Amount of `inputMint` in base units (lamports / smallest denomination) |
+
+**Returns:**
+```json
+{
+  "inputMint": "So11111111111111111111111111111111111111112",
+  "outputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "inAmount": "1000000000",
+  "outAmount": "142350000",
+  "priceImpactPct": "0.01",
+  "routePlan": [
+    { "swapInfo": { "ammKey": "...", "label": "Raydium" } }
+  ]
+}
+```
+
+---
+
+### `glosso_swap(inputMint, outputMint, amount, slippageBps?)`
+
+Execute a swap.
+
+**Script:** `tsx scripts/swap.ts <inputMint> <outputMint> <amount> [--slippage 50]`
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `inputMint` | string | — | Token mint you're selling |
+| `outputMint` | string | — | Token mint you're buying |
+| `amount` | number | — | Input amount in base units |
+| `slippageBps` | number | `50` | Slippage tolerance in basis points (50 = 0.5%) |
+
+**Returns:**
+```json
+{
+  "signature": "5xKp...",
+  "inputMint": "So111...",
+  "outputMint": "EPjFW...",
+  "inAmount": "1000000000",
+  "outAmount": "142290000",
+  "explorer": "https://explorer.solana.com/tx/5xKp...?cluster=mainnet-beta"
+}
+```
+
+---
+
+## Common Mint Addresses
+
+| Token | Mint |
+|---|---|
+| SOL (wrapped) | `So11111111111111111111111111111111111111112` |
+| USDC | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
+| USDT | `Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB` |
+| JUP | `JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN` |
+| BONK | `DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263` |
+
+<Callout type="warning">
+  `glosso-jupiter` is designed for mainnet. On devnet, liquidity pools may not exist or have extreme price impact. Test with small amounts.
+</Callout>

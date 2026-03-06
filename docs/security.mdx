@@ -1,0 +1,98 @@
+---
+title: Security
+description: How Glosso stores and protects key material in sovereign mode.
+---
+
+
+## Sovereign Mode: Key Storage
+
+In sovereign mode, Glosso generates a BIP39 mnemonic in memory, encrypts it with AES-256-GCM, and writes the ciphertext to `~/.glosso/.env`. **The plaintext mnemonic is never written to disk.**
+
+### Encryption Details
+
+| Parameter | Value |
+|---|---|
+| Algorithm | AES-256-GCM |
+| Key derivation | PBKDF2-SHA512, 100,000 iterations |
+| Salt | 32 random bytes, generated per-provisioning |
+| IV | 12 random bytes, generated per-encryption |
+| Auth tag | 16 bytes (GCM authentication tag) |
+
+The stored value is: `salt (hex) + iv (hex) + ciphertext (hex) + authTag (hex)` concatenated and stored as a single hex string.
+
+### What's Stored in `~/.glosso/.env`
+
+```bash
+GLOSSO_MODE=sovereign
+GLOSSO_MASTER_SEED_ENCRYPTED=<hex>   # encrypted mnemonic
+GLOSSO_ENCRYPTION_PASSWORD=<password> # the decryption password
+GLOSSO_NETWORK=devnet
+```
+
+<Callout type="warning">
+  `~/.glosso/.env` contains the decryption password alongside the ciphertext. This means security depends entirely on filesystem permissions and who has access to the machine. For network-exposed systems, use Privy or Turnkey instead.
+</Callout>
+
+---
+
+## HD Wallet Derivation
+
+Glosso uses standard BIP44 derivation paths for Solana:
+
+```
+m/44'/501'/index'/0'
+```
+
+Where `index` is the sub-wallet index (0–9). All sub-wallets are derived from the same encrypted mnemonic. Losing the mnemonic means losing all sub-wallets.
+
+---
+
+## What the Agent Sees
+
+The agent calls tool functions. It never receives:
+
+- The private key
+- The mnemonic
+- The encryption password
+- Any key material in any form
+
+The `@glosso/core` SDK loads key material from `.env`, decrypts it in memory, signs, and discards. Key material lives in memory only for the duration of the signing operation.
+
+---
+
+## Attack Surface
+
+| Threat | Mitigation |
+|---|---|
+| Agent exfiltrates key via `glosso_send` | Policy engine: `allowedRecipients` limits who can receive funds |
+| Agent sends too much | Policy engine: `maxSolPerTx`, `maxSolPerDay` |
+| Compromised machine reads `~/.glosso/.env` | Use Privy or Turnkey — keys never touch the machine |
+| Agent runs outside permitted hours | `activeHours` and `activeDays` in policy config |
+| Runaway agent loops | `maxTxPerHour`, `maxTxPerDay`, kill switch via `glosso policy pause` |
+| Phishing / prompt injection causes unauthorized send | `allowedRecipients` whitelist + spend limits |
+
+---
+
+## Privy and Turnkey
+
+In Privy and Turnkey modes, Glosso never holds key material locally. The signing request is sent to the provider. The private key lives in either:
+
+- **Privy**: A hardware-isolated Trusted Execution Environment (TEE) managed by Privy
+- **Turnkey**: An HSM (Hardware Security Module) managed by Turnkey
+
+In both cases, the threat model is shifted to trusting the provider. Review their security documentation before using in high-value production environments.
+
+---
+
+## Recommendations
+
+For **development and testing:** Sovereign mode on devnet. No risk to real funds.
+
+For **production with real funds:**
+- Use a dedicated server with restricted SSH access
+- `chmod 600 ~/.glosso/.env`
+- Set `allowedRecipients` to known addresses only
+- Set spend limits appropriate to your use case
+- Consider Privy or Turnkey if the machine is shared or network-exposed
+
+For **high-value or compliance-sensitive use:** Turnkey with HSM backing.

@@ -1,0 +1,118 @@
+---
+title: glosso-wallet
+description: SOL balance, transfers, and transaction history for AI agents.
+---
+
+The core wallet skill. Installed automatically when you run `glosso provision`.
+
+---
+
+## Functions
+
+### `glosso_balance(index?, includeTokens?)`
+
+Check the SOL balance of any sub-wallet.
+
+**Script:** `tsx scripts/balance.ts [--index 0] [--tokens]`
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `index` | number | `0` | Sub-wallet derivation index |
+| `includeTokens` | boolean | `false` | Also fetch SPL token balances |
+
+**Returns:**
+```json
+{
+  "address": "Bf8PxxWt7...",
+  "index": 0,
+  "sol": 1.5,
+  "tokens": [
+    { "mint": "EPjFWdd5...", "symbol": "USDC", "amount": 100.0, "decimals": 6 }
+  ]
+}
+```
+
+**When to use:** Before sending funds, before any DeFi operation, when the user asks about their balance.
+
+---
+
+### `glosso_send(to, amountSol, index?)`
+
+Send SOL from the wallet to any Solana address.
+
+**Script:** `tsx scripts/send.ts <recipient> <amountSol> [--index 0]`
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `to` | string | — | Recipient Solana address (base58) |
+| `amountSol` | number | — | Amount in SOL (e.g. `0.01`) |
+| `index` | number | `0` | Sub-wallet index to send from |
+
+**Returns:**
+```json
+{
+  "from": "Bf8PxxWt7...",
+  "to": "7nYfs5E...",
+  "amountSol": 0.01,
+  "amountLamports": 10000000,
+  "signature": "5xKp...",
+  "explorer": "https://explorer.solana.com/tx/5xKp...?cluster=devnet"
+}
+```
+
+**Always present the `explorer` link to the user after a successful send.**
+
+---
+
+### `glosso_history(index?, limit?)`
+
+Fetch recent transaction history.
+
+**Script:** `tsx scripts/history.ts [--index 0] [--limit 10]`
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `index` | number | `0` | Sub-wallet index |
+| `limit` | number | `10` | Max transactions to return |
+
+**Returns:**
+```json
+{
+  "address": "Bf8PxxWt7...",
+  "count": 3,
+  "transactions": [
+    {
+      "signature": "5xKp...",
+      "timestamp": "2025-01-15T10:30:00Z",
+      "type": "transfer",
+      "amountSol": 0.01,
+      "from": "Bf8Pxx...",
+      "to": "7nYfs5...",
+      "status": "success",
+      "explorer": "https://explorer.solana.com/tx/..."
+    }
+  ]
+}
+```
+
+---
+
+## Sub-Wallet Index Reference
+
+| Index | Conventional Purpose |
+|---|---|
+| `0` | Primary — main identity, receives funds |
+| `1` | Trading — DeFi operations, swaps |
+| `2` | Vault — long-term storage |
+| `3` | Burner — disposable, higher-risk operations |
+
+---
+
+## Error Types
+
+| Error | Meaning |
+|---|---|
+| `"Invalid recipient address"` | Address format error |
+| `"Amount must be greater than 0"` | Non-positive amount |
+| `"Insufficient balance"` | Not enough SOL (including fees) |
+| `"Failed to send transaction"` | Network error — safe to retry once |

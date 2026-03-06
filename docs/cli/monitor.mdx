@@ -1,0 +1,50 @@
+---
+title: glosso monitor
+description: Launch the live TUI dashboard to watch your agent in real time.
+---
+
+
+## Usage
+
+```bash
+glosso monitor [options]
+```
+
+## Options
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--log` | string | `~/.glosso/activity.log` | Path to activity log file |
+
+## What You See
+
+The monitor is a terminal UI (TUI) built with Ink. It shows:
+
+**Left panel — Wallet Stats:**
+- Active mode and network
+- Wallet address + current SOL balance
+- Total sessions, transactions, and estimated gas spent
+- Recent price checks (if using `glosso-pyth`)
+
+**Right panel — Activity Feed:**
+- Real-time scrolling event stream from the agent
+- Color-coded: cyan for session markers, yellow for tool calls, green for success, red for errors and policy blocks
+- Policy blocks shown as `⛔ BLOCKED [scope] — reason`
+
+## Example
+
+```bash
+# Terminal 1 — run your agent
+npx tsx demo/src/agent.ts
+
+# Terminal 2 — watch it
+glosso monitor
+```
+
+The monitor hot-tails `~/.glosso/activity.log` — it picks up new entries within ~500ms of them being written.
+
+<Callout type="info">
+  `glosso monitor` uses the Ink framework and requires a terminal that supports ANSI escape codes. It works in VS Code's integrated terminal, iTerm2, and standard macOS Terminal.
+</Callout>
+
+Press `Ctrl+C` to exit.

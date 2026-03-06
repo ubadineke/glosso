@@ -1,0 +1,62 @@
+---
+title: glosso-pyth
+description: Real-time price feeds for Solana tokens via Pyth Network.
+---
+
+Real-time, on-chain price data via [Pyth Network](https://pyth.network). Returns low-latency prices with confidence intervals — the same data used by DeFi protocols on Solana.
+
+---
+
+## Functions
+
+### `glosso_price(symbol)`
+
+Fetch the current price for a supported token.
+
+**Script:** `tsx scripts/price.ts <symbol>`
+
+| Parameter | Type | Description |
+|---|---|---|
+| `symbol` | string | Token symbol (case-insensitive) |
+
+**Supported symbols:** `SOL`, `BTC`, `ETH`, `USDC`, `USDT`, `JUP`, `BONK`, `WIF`, `PYTH`, `JTO`
+
+**Returns:**
+```json
+{
+  "symbol": "SOL",
+  "price": 142.35,
+  "confidence": 0.12,
+  "expo": -8,
+  "ts": 1741234567,
+  "publishTime": "2025-03-06T10:22:47Z"
+}
+```
+
+| Field | Description |
+|---|---|
+| `price` | Current price in USD |
+| `confidence` | Pyth confidence interval (± USD) |
+| `expo` | Price exponent from Pyth (for raw calculations) |
+| `ts` | Unix timestamp of the price |
+| `publishTime` | ISO timestamp |
+
+---
+
+## Usage in Agent
+
+```typescript
+// In your tool call handler:
+const result = await runScript('glosso-pyth', 'price.ts', ['SOL']);
+// result.price = 142.35
+
+// Example agent reasoning:
+// "SOL is at $142.35 with ±0.12 confidence.
+//  My long entry signal triggers above $140 — opening position."
+```
+
+---
+
+## Price Freshness
+
+Pyth prices are published every 400ms by independent data providers. The `confidence` field tells you how tight the spread is. For automated trading, treat prices with confidence > 1% of the price as potentially stale market conditions.

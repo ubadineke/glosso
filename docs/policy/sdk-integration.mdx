@@ -1,0 +1,116 @@
+---
+title: SDK Integration
+description: Use withPolicy() to create a scoped wallet in your agent code.
+---
+
+
+## Creating a Scoped Wallet
+
+Call `wallet.withPolicy()` to wrap any `GlossoWallet` with a `PolicyConfig`. All subsequent sign and send calls go through the policy engine.
+
+```typescript
+import { GlossoWallet, PolicyViolationError } from '@glosso/core';
+
+const wallet = await GlossoWallet.fromEnv();
+
+const scoped = wallet.withPolicy({
+  maxSolPerTx: 0.5,
+  maxSolPerDay: 3.0,
+  maxTxPerHour: 5,
+  maxTxPerDay: 20,
+  allowedPrograms: [
+    '11111111111111111111111111111111',
+    'dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH',
+    'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4',
+  ],
+  activeHours: { from: 8, to: 22, timezone: 'UTC' },
+});
+```
+
+The returned `ScopedGlossoWallet` implements the same interface as `GlossoWallet`. Pass it to your tools in place of the unwrapped wallet — no other changes needed.
+
+---
+
+## Catching PolicyViolationError
+
+`PolicyViolationError` is thrown synchronously before any network call. Wrap your tool implementations:
+
+```typescript
+import { PolicyViolationError } from '@glosso/core';
+
+async function send_sol(args: { to: string; amountSol: number }) {
+  try {
+    const lamports = args.amountSol * 1e9;
+    const result = await scopedWallet.send(args.to, lamports);
+    return { success: true, signature: result.signature };
+
+  } catch (e) {
+    if (e instanceof PolicyViolationError) {
+      // Return a structured error the agent can read and reason about
+      return {
+        blocked: true,
+        scope: e.scope,
+        reason: e.reason,
+        // The agent will see e.g.:
+        // "Blocked by policy: 2.8/3.0 SOL used today"
+        // "Blocked by policy: 5/5 txs in the last hour"
+        // "Blocked by policy: All signing is suspended"
+      };
+    }
+    throw e; // re-throw unexpected errors
+  }
+}
+```
+
+The agent receives the reason as a tool result, can explain the limitation to the user, and stops retrying the blocked operation.
+
+---
+
+## Persistence
+
+By default, rolling counters (tx history, spend totals) are held in memory and reset when the process restarts.
+
+For production deployments where counters should survive restarts, share the counter state file with the CLI:
+
+```typescript
+const scoped = wallet.withPolicy(
+  { maxSolPerDay: 3.0, maxTxPerHour: 5 },
+  {
+    persist: true,
+    stateFile: path.join(homedir(), '.glosso', 'policy-state.json'),
+  }
+);
+```
+
+With `persist: true`, the counters written by the agent match what `glosso policy status` shows in the terminal — the CLI and SDK share state.
+
+---
+
+## Config File vs Inline Config
+
+There are two ways to configure the engine:
+
+**Inline (SDK)** — pass the config directly to `withPolicy()`. Useful for programmatic control.
+
+**File-based (CLI)** — create a `PolicyEngine` with an empty config and a path to `~/.glosso/policy.json`. The engine reads the file on every check, enabling hot-reload.
+
+```typescript
+import { PolicyEngine, PolicyStateManager } from '@glosso/core';
+import { homedir } from 'os';
+import path from 'path';
+
+// File-based — hot-reloads on every check
+const engine = new PolicyEngine(
+  {},  // empty = use file
+  new PolicyStateManager(),
+  path.join(homedir(), '.glosso', 'policy.json')
+);
+```
+
+The CLI commands (`glosso policy set`, `glosso policy pause`, etc.) update this file — making both approaches interoperable.
+
+---
+
+<Callout type="info">
+  `ScopedGlossoWallet` also exposes `toDriftWallet()` — so if you're passing the wallet to the Drift SDK, you can still use the scoped version without any adapter changes.
+</Callout>

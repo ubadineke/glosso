@@ -1,0 +1,80 @@
+---
+title: CLI Management
+description: Manage policy at the terminal without touching agent code.
+---
+
+All policy commands read and write `~/.glosso/policy.json`. Changes take effect on the next agent action — no restart required.
+
+For the full CLI reference, see [glosso policy CLI](/cli/policy).
+
+---
+
+## Common Workflows
+
+### Set up limits before running an agent
+
+```bash
+glosso policy set MAX_SOL_PER_TX 0.5
+glosso policy set MAX_SOL_PER_DAY 3.0
+glosso policy set MAX_TX_PER_HOUR 10
+
+glosso policy allow-program 11111111111111111111111111111111
+glosso policy allow-program dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH
+glosso policy allow-program JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4
+
+glosso policy status
+```
+
+### Emergency stop
+
+```bash
+glosso policy pause
+# The agent's next sign attempt will throw PolicyViolationError("PAUSED")
+```
+
+```bash
+glosso policy resume
+# Back to normal
+```
+
+### Inspect what the agent spent
+
+```bash
+glosso policy status
+# Shows rolling counters: txs in last hour, SOL spent in last 24h, etc.
+```
+
+### After a test session — clear the counters
+
+```bash
+glosso policy reset-counters
+```
+
+---
+
+## Direct File Editing
+
+For more complex configs (e.g. multiple recipients, exact program lists), editing `~/.glosso/policy.json` directly is often faster:
+
+```json
+{
+  "maxSolPerTx": 0.5,
+  "maxSolPerDay": 3.0,
+  "maxTxPerHour": 10,
+  "allowedPrograms": [
+    "11111111111111111111111111111111",
+    "dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH",
+    "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+  ],
+  "allowedRecipients": [
+    "7nYfs5EkxcfKwTUK9PcKjjQvifP45sWVT1p6KMeKxKi"
+  ],
+  "activeHours": { "from": 8, "to": 22, "timezone": "UTC" },
+  "activeDays": ["mon", "tue", "wed", "thu", "fri"],
+  "expiresAt": "2025-12-31T23:59:59Z",
+  "paused": false
+}
+```
+
+The engine re-reads this file on every sign call, so edits apply immediately.

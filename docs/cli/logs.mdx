@@ -1,0 +1,58 @@
+---
+title: glosso logs
+description: View the structured activity log from the agent's last session.
+---
+
+## Usage
+
+```bash
+glosso logs [options]
+```
+
+## Options
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--tail` | number | `50` | Number of recent entries to show |
+| `--type` | string | all | Filter by event type (e.g. `tool_success`, `policy_block`) |
+| `--follow` | boolean | false | Stream new entries as they arrive (like `tail -f`) |
+
+## Event Types
+
+| Type | Description |
+|---|---|
+| `agent_start` | Session started — mode, network, model |
+| `agent_round` | Agent loop round number |
+| `agent_thinking` | Model's reasoning text (truncated) |
+| `agent_end` | Session completed |
+| `tool_call` | Tool invoked with arguments |
+| `tool_success` | Tool returned successfully — includes result detail |
+| `tool_error` | Tool threw an error |
+| `price_check` | Price feed query result |
+| `balance_check` | Balance query result |
+| `policy_block` | Transaction blocked by policy engine |
+
+## Examples
+
+```bash
+# Show last 50 entries
+glosso logs
+
+# Show last 100 entries
+glosso logs --tail 100
+
+# Show only policy blocks
+glosso logs --type policy_block
+
+# Stream live
+glosso logs --follow
+```
+
+## Log File Location
+
+Logs are stored as JSON Lines at `~/.glosso/activity.log`. Each line is a valid JSON object. You can parse them directly:
+
+```bash
+# All policy blocks today
+cat ~/.glosso/activity.log | grep '"type":"policy_block"' | jq .
+```

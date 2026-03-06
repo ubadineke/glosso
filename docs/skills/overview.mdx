@@ -1,0 +1,112 @@
+---
+title: Skills Overview
+description: How Glosso's modular capability system works.
+---
+
+
+## What Are Skills?
+
+Skills are self-contained capability modules. Each skill ships:
+
+- A **script directory** with TypeScript scripts the agent can invoke
+- A **`SKILL.md`** manifest that tells the agent exactly what it can do, what parameters to pass, and what to expect back
+
+The agent reads `SKILL.md` at startup and immediately knows how to call the skill — no hardcoded capability lists in your system prompt, no outdated documentation.
+
+---
+
+## The Manifest System
+
+When you provision a wallet, a `GLOSSO.md` is written to your working directory. It aggregates all installed skills into one file:
+
+```markdown
+# GLOSSO — Capability Manifest
+
+## Installed Skills
+
+### glosso-wallet
+- glosso_balance(index?, includeTokens?) → { address, sol, tokens }
+- glosso_send(to, amountSol, index?) → { signature, explorer }
+- glosso_history(index?, limit?) → { transactions }
+
+### glosso-pyth
+- glosso_price(symbol) → { symbol, price, confidence, ts }
+
+### glosso-jupiter
+- glosso_quote(inputMint, outputMint, amount) → { inAmount, outAmount, priceImpact }
+- glosso_swap(inputMint, outputMint, amount) → { signature }
+```
+
+The agent passes this as a section of its system prompt — it knows what it can do, what parameters each function takes, and what to expect back.
+
+---
+
+## Available Skills
+
+<CardGroup cols={2}>
+  <Card title="glosso-wallet" icon="wallet" href="/skills/glosso-wallet">
+    SOL balance checks, transfers, and transaction history.
+  </Card>
+  <Card title="glosso-pyth" icon="chart-line" href="/skills/glosso-pyth">
+    Real-time price feeds for SOL, BTC, ETH, USDC, JUP, BONK and more via Pyth Network.
+  </Card>
+  <Card title="glosso-jupiter" icon="arrows-rotate" href="/skills/glosso-jupiter">
+    Token swap quotes and execution via the Jupiter aggregator.
+  </Card>
+  <Card title="OpenClaw install" icon="cloud-arrow-down" href="/skills/openclaw">
+    Install all skills onto an OpenClaw agent VM with one command.
+  </Card>
+</CardGroup>
+
+---
+
+## How Skills Are Loaded
+
+At provision time, Glosso writes `GLOSSO.md` to the current directory by scanning `~/.openclaw/skills/glosso-*/SKILL.md` (or the local `packages/skills/` directory). The `GLOSSO.md` is a concatenation of each skill's capabilities section.
+
+In your agent:
+
+```typescript
+import fs from 'fs';
+
+const glossoMd = fs.existsSync('./GLOSSO.md')
+  ? fs.readFileSync('./GLOSSO.md', 'utf-8')
+  : '';
+
+const systemPrompt = `
+You are an autonomous Solana agent.
+
+${glossoMd}
+
+Use the tools above to complete the user's request.
+`.trim();
+```
+
+---
+
+## Anatomy of a SKILL.md
+
+Each `SKILL.md` is a machine-readable manifest with frontmatter and structured sections:
+
+```markdown
+---
+name: glosso-wallet
+description: Solana wallet for AI agents. ...
+metadata: {"openclaw": {"emoji": "💳", "requires": {"bins": ["node"]}}}
+---
+
+## Available Functions
+
+### glosso_balance(index?, includeTokens?)
+**Script:** tsx scripts/balance.ts
+**Returns:** { address, sol, tokens }
+...
+```
+
+The frontmatter `description` field is injected into the agent's tool discovery. The body documents each function the agent may call.
+
+---
+
+<Callout type="info">
+  Skills are just TypeScript scripts + a manifest. You can write your own — see [Writing a Skill](/skills/writing-a-skill).
+</Callout>

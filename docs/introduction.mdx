@@ -1,0 +1,95 @@
+---
+title: Introduction
+description: Agentic wallet infrastructure for Solana.
+---
+
+
+# What is Glosso?
+
+> *From Glossokomon (γλωσσόκομον) — the ancient Greek word for a keeper of precious things.*
+
+**Glosso gives any AI agent an autonomous, production-grade Solana wallet it fully controls** — no human approval loop, no key exposure, no framework lock-in.
+
+Most wallet integrations for AI agents are either read-only, require human confirmation for every action, or expose private keys directly to the model. Glosso solves all three.
+
+<CardGroup cols={2}>
+  <Card title="Provision in one command" icon="key">
+    Generate, encrypt, and configure a wallet with `glosso provision`. The raw private key is never printed.
+  </Card>
+  <Card title="Three signing backends" icon="server">
+    Sovereign (local AES-256-GCM), Privy (TEE), or Turnkey (HSM). Switch modes without touching agent code.
+  </Card>
+  <Card title="Skills architecture" icon="puzzle-piece">
+    Capabilities ship as `SKILL.md` manifests. The agent reads them at startup — no hardcoded capability lists in prompts.
+  </Card>
+  <Card title="Policy engine" icon="shield">
+    Scoped permissions: per-tx spend limits, rate limits, program allowlists, time windows, and a kill switch.
+  </Card>
+</CardGroup>
+
+---
+
+## The Two-Phase Model
+
+Glosso's lifecycle splits cleanly between the operator and the agent.
+
+**Phase 1 — Provision (operator, one time)**
+
+```bash
+glosso provision --mode sovereign
+```
+
+Generates a wallet, encrypts keys, writes config to `.env`, and drops a `GLOSSO.md` capability manifest into the working directory. The raw private key is never written to disk or printed.
+
+**Phase 2 — Runtime (agent, autonomous)**
+
+The agent reads `GLOSSO.md`, discovers its tools (balance, send, price feeds, swaps), and operates without human input. Changing the signing backend requires only a config change — never a code change.
+
+---
+
+## Who Is It For?
+
+| Use case | Why Glosso |
+|---|---|
+| AI trading agents | Autonomous DeFi interaction with spend limits and position controls |
+| Autonomous payment bots | Rate limits and recipient allowlists prevent runaway spending |
+| Multi-agent pipelines | Scoped wallets let each agent have exactly the permissions it needs |
+| Hackathons / demos | Sovereign mode: no API keys, no accounts, fully self-contained |
+
+---
+
+## How It Fits Together
+
+```
+Operator                 Agent
+────────                 ─────
+glosso provision    →    reads GLOSSO.md
+                         calls balance / send / swap tools
+                              ↓
+                    GlossoWallet adapter
+                         ↓         ↓
+                  PolicyEngine   Signing backend
+                         ↓         ↓
+                    Solana RPC  ←──────────
+```
+
+The agent never sees private key material. It calls tool functions that are backed by `@glosso/core`, which handles signing, policy enforcement, and activity logging transparently.
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Install, provision your first wallet, and run the demo agent in under 5 minutes.
+  </Card>
+  <Card title="Wallet Modes" icon="vault" href="/wallet-modes">
+    Understand sovereign, Privy, and Turnkey — and how to choose.
+  </Card>
+  <Card title="Policy Engine" icon="lock" href="/policy/overview">
+    Learn how to set spend limits, rate limits, and kill switches.
+  </Card>
+  <Card title="Skills" icon="wrench" href="/skills/overview">
+    Explore the modular capability system and how to install skills.
+  </Card>
+</CardGroup>

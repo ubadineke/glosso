@@ -1,0 +1,151 @@
+---
+title: Writing a Skill
+description: Build your own Glosso skill — a SKILL.md manifest + script directory.
+---
+
+
+A Glosso skill is just a directory with TypeScript scripts and a `SKILL.md` that describes what they do. The agent reads the manifest and knows how to call the scripts.
+
+---
+
+## Structure
+
+```
+packages/skills/my-skill/
+├── SKILL.md            # machine-readable manifest
+├── package.json        # deps for your scripts
+└── scripts/
+    ├── my-function.ts  # executable script
+    └── another.ts
+```
+
+---
+
+## 1. Write Your Scripts
+
+Each script should be runnable with `npx tsx scripts/my-function.ts [args]` and print a JSON result to stdout:
+
+```typescript
+// scripts/my-function.ts
+import { GlossoWallet } from '@glosso/core';
+
+const wallet = await GlossoWallet.fromEnv();
+
+// ... do something useful
+
+const result = {
+  success: true,
+  data: 'whatever the agent needs',
+};
+
+console.log(JSON.stringify(result));
+```
+
+Scripts receive arguments from `process.argv`. Use a simple arg parser or `commander`:
+
+```typescript
+import { program } from 'commander';
+
+program
+  .argument('<symbol>', 'token symbol')
+  .option('--index <n>', 'wallet index', '0')
+  .parse();
+
+const [symbol] = program.args;
+const { index } = program.opts();
+```
+
+---
+
+## 2. Write SKILL.md
+
+The `SKILL.md` frontmatter is the machine-readable part. The body is human + agent documentation.
+
+```markdown
+---
+name: my-skill
+description: One sentence describing what this skill does for AI agents.
+  IMPORTANT: any critical behavioral instructions for the agent go here.
+metadata: {"openclaw": {"emoji": "🔧", "requires": {"bins": ["node"]}}}
+---
+
+# SKILL.md — my-skill
+
+## Available Functions
+
+### `my_function(arg1, arg2?)`
+
+**Script:** `tsx scripts/my-function.ts <arg1> [--arg2 value]`
+
+**Purpose:** What this function does and when to use it.
+
+**Parameters:**
+| Name | Type | Default | Description |
+|---|---|---|---|
+| `arg1` | string | — | Required argument |
+| `arg2` | string | `default` | Optional argument |
+
+**Returns:**
+```json
+{
+  "success": true,
+  "data": "..."
+}
+```
+
+**When to use:** Tell the agent when to call this.
+```
+
+<Callout type="info">
+  The `description` field in the frontmatter is what gets injected into agent prompts. Keep it concise but include any critical behavioral notes (e.g. "NEVER display private keys", "ALWAYS show the explorer link").
+</Callout>
+
+---
+
+## 3. Write package.json
+
+```json
+{
+  "name": "glosso-my-skill",
+  "version": "0.1.0",
+  "description": "My custom Glosso skill",
+  "scripts": {
+    "install-deps": "pnpm install"
+  },
+  "dependencies": {
+    "@glosso/core": "workspace:*",
+    "@solana/web3.js": "^1.98.0"
+  }
+}
+```
+
+---
+
+## 4. Test It
+
+```bash
+# Run a script directly
+npx tsx packages/skills/my-skill/scripts/my-function.ts hello --arg2 world
+
+# Verify it prints clean JSON
+npx tsx packages/skills/my-skill/scripts/my-function.ts hello | jq .
+```
+
+---
+
+## 5. Install Into OpenClaw
+
+Copy your skill to `~/.openclaw/skills/`:
+
+```bash
+cp -r packages/skills/my-skill ~/.openclaw/skills/my-skill
+cd ~/.openclaw/skills/my-skill && pnpm install
+```
+
+Then restart the OpenClaw gateway and your agent can discover it via `GLOSSO.md`.
+
+---
+
+<Callout type="warning">
+  Scripts should be idempotent where possible. The agent may retry a tool call if it doesn't get a response — design scripts so double-execution doesn't cause unintended effects.
+</Callout>

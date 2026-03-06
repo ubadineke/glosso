@@ -6,6 +6,7 @@ import { statusCommand } from './commands/status';
 import { switchCommand } from './commands/switch';
 import { logsCommand } from './commands/logs';
 import { monitorCommand } from './commands/monitor';
+import { policyCommand } from './commands/policy';
 
 const program = new Command();
 
@@ -19,5 +20,6 @@ program.addCommand(statusCommand);
 program.addCommand(switchCommand);
 program.addCommand(logsCommand);
 program.addCommand(monitorCommand);
+program.addCommand(policyCommand);
 
 program.parse(process.argv);

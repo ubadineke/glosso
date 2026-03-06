@@ -1,0 +1,145 @@
+---
+title: Wallet Modes
+description: Sovereign, Privy, and Turnkey — three signing backends, one interface.
+---
+
+
+Glosso separates the **wallet interface** from the **signing backend**. Your agent code never changes when you switch modes — only the config does.
+
+```bash
+# Switch from sovereign to Privy with one command
+glosso switch --mode privy
+# Active wallet: EzwNi5jN2xTjaZRqAigXzKp4KyzcN8bXkwA1PHfckGo5
+```
+
+---
+
+## Comparison
+
+| | Sovereign | Privy | Turnkey |
+|---|---|---|---|
+| **Key storage** | Local, AES-256-GCM encrypted | Privy TEE (Trusted Execution Environment) | HSM via Turnkey API |
+| **External dependency** | None | Privy account | Turnkey account |
+| **Production ready** | ✓ on trusted servers | ✓ | ✓ |
+| **Compliance** | Manual | Privy terms | Turnkey terms |
+| **Recovery** | Your encrypted mnemonic | Privy dashboard | Turnkey dashboard |
+| **Best for** | Dev, self-hosted, zero deps | Cloud production | Enterprise, compliance |
+
+---
+
+## Sovereign
+
+<Callout type="info">
+  Sovereign mode is fully self-contained. No accounts, no API keys, no external services.
+</Callout>
+
+The default mode. Glosso generates a BIP39 mnemonic, derives Solana HD wallet paths (`m/44'/501'/index'/0'`), and encrypts the mnemonic with AES-256-GCM before writing it to `~/.glosso/.env`.
+
+**Provision:**
+
+```bash
+glosso provision --mode sovereign
+# or on mainnet:
+glosso provision --mode sovereign --network mainnet-beta
+```
+
+**Key material flow:**
+
+```
+BIP39 mnemonic (in-memory)
+        ↓
+AES-256-GCM encrypt (PBKDF2 key from password + random salt + IV)
+        ↓
+~/.glosso/.env  ←  GLOSSO_MASTER_SEED_ENCRYPTED=<hex>
+                   GLOSSO_ENCRYPTION_PASSWORD=<password>
+```
+
+The plaintext mnemonic never touches disk. The encrypted blob is what's stored.
+
+**Sub-wallets (HD derivation):**
+
+One seed, multiple addresses. Use the `--index` flag on CLI commands or the `index` parameter in SDK calls:
+
+| Index | Conventional purpose |
+|---|---|
+| 0 | Primary — main identity, receives funds |
+| 1 | Trading — DeFi operations, swaps |
+| 2 | Vault — long-term storage |
+| 3 | Burner — disposable, risky operations |
+
+**When to use:**
+- Development and testing on devnet
+- Self-hosted agents on a trusted server you control
+- Scenarios where zero external dependencies matter
+
+---
+
+## Privy
+
+Privy stores your keys in a Trusted Execution Environment (TEE) — a hardware-isolated enclave where even Privy's own engineers cannot access key material.
+
+**Provision:**
+
+```bash
+glosso provision --mode privy
+```
+
+You'll be prompted for your Privy API credentials, which are stored in `~/.glosso/.env`.
+
+**How it works:**
+
+```
+Agent calls sign(tx)
+        ↓
+@glosso/core → Privy REST API
+        ↓
+Privy TEE signs the transaction
+        ↓
+Signed tx returned — key never leaves enclave
+```
+
+**When to use:**
+- Production cloud deployments
+- When you want key management handled by a specialized provider
+- Teams that need key rotation, access controls, and audit logs from a provider
+
+---
+
+## Turnkey
+
+Turnkey provides HSM-backed (Hardware Security Module) key management with enterprise policy controls built into the infrastructure layer.
+
+**Provision:**
+
+```bash
+glosso provision --mode turnkey
+```
+
+**When to use:**
+- Enterprise deployments with compliance requirements
+- When you need hardware-grade key security guarantees
+- High-value production wallets
+
+<Callout type="warning">
+  Turnkey integration requires a Turnkey account and API credentials. See [Turnkey's documentation](https://docs.turnkey.com) for setup.
+</Callout>
+
+---
+
+## Switching Modes
+
+Switching modes does not change your wallet address if you use the same underlying key material. Use `glosso switch` to activate any already-provisioned mode:
+
+```bash
+glosso switch --mode privy
+```
+
+To see all available (provisioned) modes:
+
+```bash
+glosso switch --list
+```
+
+<Callout type="info">
+  Your agent code references `GlossoWallet.fromEnv()` — it reads the active mode from `.env` and constructs the correct adapter automatically. No code changes needed when switching modes.
+</Callout>
