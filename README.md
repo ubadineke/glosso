@@ -106,12 +106,13 @@ The agent reads `SKILL.md`, asks which mode (sovereign/privy/turnkey), runs the 
 **Run it:**
 
 ```bash
-# Terminal 1 — install, provision and run the agent
+# Terminal 1 — provision and run the agent
 npm install -g glosso
 glosso provision --mode sovereign
 
-git clone https://github.com/ubadineke/glosso && cd glosso/demo
-cp .env.example .env   # add your XAI_API_KEY
+# Clone just for the demo agent source
+git clone https://github.com/ubadineke/glosso
+cd glosso/demo && cp .env.example .env   # add your XAI_API_KEY
 npm install
 npx tsx src/agent.ts
 
@@ -121,19 +122,14 @@ glosso monitor
 
 ---
 
-## Install
-
-```bash
-npm install -g glosso
-```
-
-That's it. The `glosso` CLI is now available globally. No cloning, no pnpm, no build step.
-
 ## Quick Start
 
 **Prerequisites:** Node.js 18+
 
 ```bash
+# Install the CLI
+npm install -g glosso
+
 # Provision a wallet
 glosso provision --mode sovereign
 

@@ -16,7 +16,7 @@ description: Go from zero to a running autonomous Solana agent in under 5 minute
 If you're running an [OpenClaw](https://openclaw.dev) agent VM, run one command to install all three Glosso skills:
 
 ```bash
-npm install -g glosso && bash <(curl -s https://raw.githubusercontent.com/ubadineke/glosso/main/install.sh)
+git clone https://github.com/ubadineke/glosso.git && cd glosso && bash install.sh
 ```
 
 Then in the OpenClaw agent chat:
@@ -27,10 +27,10 @@ The agent reads `SKILL.md`, asks which mode you want, runs the provision script,
 
 ---
 
-## Option B — Install via npm
+## Option B — Standard Setup
 
 <Steps>
-  <Step title="Install the CLI">
+  <Step title="Install Glosso">
     ```bash
     npm install -g glosso
     ```
@@ -77,6 +77,8 @@ The agent reads `SKILL.md`, asks which mode you want, runs the provision script,
 
   <Step title="Run the demo agent">
     The demo is a fully autonomous Drift trading agent that reads `GLOSSO.md` and executes a complete trading cycle without prompting.
+
+    Clone the repo to get the demo agent source:
 
     ```bash
     git clone https://github.com/ubadineke/glosso.git
