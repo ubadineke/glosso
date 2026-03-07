@@ -1,21 +1,22 @@
 {
   "name": "@glosso/core",
   "version": "0.1.0",
-  "private": true,
-  "type": "module",
   "description": "Glosso wallet provisioning engine",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./src/index.ts",
-      "require": "./src/index.ts",
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     }
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "test:connection": "tsx src/test-connection.ts",
     "test:derive": "tsx src/test-derive.ts",
     "test:sovereign": "tsx src/test-sovereign.ts"

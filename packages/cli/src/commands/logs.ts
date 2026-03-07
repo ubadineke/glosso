@@ -158,7 +158,7 @@ function followLog(logPath: string, sessionFilter?: string): void {
     fs.mkdirSync(dir, { recursive: true });
   }
 
-  fs.watch(dir, (eventType, filename) => {
+  fs.watch(dir, (eventType: string, filename: string | null) => {
     if (filename !== basename) return;
 
     let newSize: number;
