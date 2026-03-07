@@ -7,7 +7,7 @@
 ---
 
 <!-- diagram: problem-vs-solution -->
-![Glosso — Autonomous vs Human-Gated](./packages/assets/glosso-comparison.png)
+![Glosso — Autonomous vs Human-Gated](/assets/glosso-comparison.png)
 
 ---
 
@@ -106,12 +106,13 @@ The agent reads `SKILL.md`, asks which mode (sovereign/privy/turnkey), runs the 
 **Run it:**
 
 ```bash
-# Terminal 1 — provision and run the agent
-git clone https://github.com/ubadineke/glosso && cd glosso
-pnpm install
-npx tsx packages/cli/src/index.ts provision --mode sovereign
+# Terminal 1 — install, provision and run the agent
+npm install -g glosso
+glosso provision --mode sovereign
 
-cd demo && cp .env.example .env   # add your XAI_API_KEY
+git clone https://github.com/ubadineke/glosso && cd glosso/demo
+cp .env.example .env   # add your XAI_API_KEY
+npm install
 npx tsx src/agent.ts
 
 # Terminal 2 — watch it live
@@ -120,22 +121,24 @@ glosso monitor
 
 ---
 
-## Quick Start (Self-Hosted)
-
-For developers integrating Glosso directly or contributing to the repo.
-
-**Prerequisites:** Node.js 18+, pnpm
+## Install
 
 ```bash
-git clone https://github.com/ubadineke/glosso
-cd glosso
-pnpm install
+npm install -g glosso
+```
 
+That's it. The `glosso` CLI is now available globally. No cloning, no pnpm, no build step.
+
+## Quick Start
+
+**Prerequisites:** Node.js 18+
+
+```bash
 # Provision a wallet
-npx tsx packages/cli/src/index.ts provision --mode sovereign
+glosso provision --mode sovereign
 
 # Verify
-npx tsx packages/cli/src/index.ts status
+glosso status
 ```
 
 ---
@@ -184,12 +187,13 @@ Every tool call, transaction signature, thinking step, and error is written to `
 
 **`glosso monitor`** — full-terminal Ink/React dashboard with live file watching:
 
-- **Header** — mode, short address, network, clock
+<!-- - **Header** — mode, short address, network, clock
 - **Wallet Panel** — SOL balance, open position, agent round
 - **Activity Feed** — scrolling events with icons, results, explorer links
 - **Price Chart** — SOL/USD sparkline, high/low, TX success rate
-- **Status Bar** — TX count, error count, last result
+- **Status Bar** — TX count, error count, last result -->
 
+![TUI Sample Image](/assets/glosso-monitor.png)
 ---
 
 ## Environment Variables

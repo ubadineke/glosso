@@ -7,7 +7,6 @@ description: Go from zero to a running autonomous Solana agent in under 5 minute
 ## Prerequisites
 
 - Node.js ≥ 18
-- pnpm (`npm install -g pnpm`)
 - An XAI API key (or OpenAI/Anthropic) — only needed for the demo agent
 
 ---
@@ -17,7 +16,7 @@ description: Go from zero to a running autonomous Solana agent in under 5 minute
 If you're running an [OpenClaw](https://openclaw.dev) agent VM, run one command to install all three Glosso skills:
 
 ```bash
-git clone https://github.com/ubadineke/glosso.git && cd glosso && bash install.sh
+npm install -g glosso && bash <(curl -s https://raw.githubusercontent.com/ubadineke/glosso/main/install.sh)
 ```
 
 Then in the OpenClaw agent chat:
@@ -28,14 +27,12 @@ The agent reads `SKILL.md`, asks which mode you want, runs the provision script,
 
 ---
 
-## Option B — Manual Setup
+## Option B — Install via npm
 
 <Steps>
-  <Step title="Clone and install">
+  <Step title="Install the CLI">
     ```bash
-    git clone https://github.com/ubadineke/glosso.git
-    cd glosso
-    pnpm install
+    npm install -g glosso
     ```
   </Step>
 
@@ -43,7 +40,7 @@ The agent reads `SKILL.md`, asks which mode you want, runs the provision script,
     Sovereign mode stores an AES-256-GCM encrypted mnemonic locally — no external accounts needed.
 
     ```bash
-    npx tsx packages/cli/src/index.ts provision --mode sovereign
+    glosso provision --mode sovereign
     ```
 
     Output:
@@ -63,7 +60,7 @@ The agent reads `SKILL.md`, asks which mode you want, runs the provision script,
 
   <Step title="Check your wallet">
     ```bash
-    npx tsx packages/cli/src/index.ts status
+    glosso status
     ```
 
     ```
@@ -82,17 +79,18 @@ The agent reads `SKILL.md`, asks which mode you want, runs the provision script,
     The demo is a fully autonomous Drift trading agent that reads `GLOSSO.md` and executes a complete trading cycle without prompting.
 
     ```bash
-    cd demo
+    git clone https://github.com/ubadineke/glosso.git
+    cd glosso/demo
     cp .env.example .env
     # Add your XAI_API_KEY to .env
-    pnpm install
+    npm install
     npx tsx src/agent.ts
     ```
 
     In a second terminal, watch it live:
 
     ```bash
-    npx tsx packages/cli/src/index.ts monitor
+    glosso monitor
     ```
   </Step>
 </Steps>
