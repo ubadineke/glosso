@@ -109,7 +109,7 @@ npx tsx packages/cli/src/index.ts policy allow-program 1111111111111111111111111
 Then in the demo, wrap the wallet:
 
 ```typescript
-const wallet = await GlossoWallet.fromEnv();
+const wallet = new GlossoWallet();
 const scoped = wallet.withPolicy({}); // reads ~/.glosso/policy.json automatically
 ```
 

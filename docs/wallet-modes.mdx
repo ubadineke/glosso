@@ -141,5 +141,5 @@ glosso switch --list
 ```
 
 <Callout type="info">
-  Your agent code references `GlossoWallet.fromEnv()` — it reads the active mode from `.env` and constructs the correct adapter automatically. No code changes needed when switching modes.
+  Your agent code uses `new GlossoWallet()` — it reads `GLOSSO_MODE` from the environment and constructs the correct adapter automatically. No code changes needed when switching modes.
 </Callout>

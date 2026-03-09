@@ -12,7 +12,7 @@ import {
   listProvisionedModes,
   MODE_TO_LABEL,
   WALLET_ADDRESS_KEY,
-} from '../utils/env';
+} from '../utils/env.js';
 
 export const switchCommand = new Command('switch')
   .description('Switch the active wallet mode to an already-provisioned wallet')

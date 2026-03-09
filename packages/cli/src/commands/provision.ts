@@ -7,7 +7,7 @@ import {
   deriveAddress,
   encrypt,
 } from '@glosso/core';
-import { generateGlossoMd } from '../generate-md';
+import { generateGlossoMd } from '../generate-md.js';
 import {
   loadEnvFile,
   parseEnvFile,
@@ -16,7 +16,7 @@ import {
   reconcileKeys,
   ENV_FILE_HEADER_COMMENT,
   WALLET_ADDRESS_KEY,
-} from '../utils/env';
+} from '../utils/env.js';
 
 export const provisionCommand = new Command('provision')
   .description('Provision a new Glosso wallet for an AI agent')

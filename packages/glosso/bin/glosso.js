@@ -1,2 +1,2 @@
 #!/usr/bin/env node
-require('@glosso/cli');
+import('@glosso/cli');

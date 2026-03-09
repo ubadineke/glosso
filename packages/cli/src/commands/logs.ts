@@ -12,6 +12,7 @@
 
 import { Command } from 'commander';
 import * as fs from 'fs';
+import * as path from 'path';
 import chalk from 'chalk';
 import {
   readLogEntries,
@@ -150,8 +151,8 @@ function followLog(logPath: string, sessionFilter?: string): void {
 
   console.log(chalk.gray('  ─── live ───'));
 
-  const dir = require('path').dirname(logPath);
-  const basename = require('path').basename(logPath);
+  const dir = path.dirname(logPath);
+  const basename = path.basename(logPath);
 
   // Ensure directory exists for watcher
   if (!fs.existsSync(dir)) {

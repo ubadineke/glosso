@@ -11,7 +11,7 @@ Call `wallet.withPolicy()` to wrap any `GlossoWallet` with a `PolicyConfig`. All
 ```typescript
 import { GlossoWallet, PolicyViolationError } from '@glosso/core';
 
-const wallet = await GlossoWallet.fromEnv();
+const wallet = new GlossoWallet();
 
 const scoped = wallet.withPolicy({
   maxSolPerTx: 0.5,

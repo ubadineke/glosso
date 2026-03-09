@@ -15,8 +15,8 @@ The central object. Wraps the signing backend of your choice and exposes a unifi
 ```typescript
 import { GlossoWallet } from '@glosso/core';
 
-// Load from environment (mode is read from GLOSSO_MODE in .env)
-const wallet = await GlossoWallet.fromEnv();
+// Reads GLOSSO_MODE from process.env (set by `glosso provision`)
+const wallet = new GlossoWallet();
 
 console.log(wallet.publicKey.toBase58()); // your wallet address
 console.log(await wallet.getBalance());   // SOL balance as number
@@ -46,8 +46,13 @@ console.log(result.explorer); // Solana explorer link
 Sovereign mode derives multiple keypairs from the same seed. Pass an index to operate on a specific sub-wallet:
 
 ```typescript
-const tradingWallet = await GlossoWallet.fromEnv({ index: 1 });
-const vaultWallet   = await GlossoWallet.fromEnv({ index: 2 });
+const wallet = new GlossoWallet();
+
+// Pass the index to individual method calls
+const tradingAddress = await wallet.getAddress(1);
+const tradingBalance = await wallet.getBalance(1);
+
+const vaultAddress = await wallet.getAddress(2);
 ```
 
 ---
@@ -59,7 +64,7 @@ Wrap any `GlossoWallet` with a `PolicyConfig` to get a `ScopedGlossoWallet` that
 ```typescript
 import { GlossoWallet, PolicyViolationError } from '@glosso/core';
 
-const wallet = await GlossoWallet.fromEnv();
+const wallet = new GlossoWallet();
 
 const scoped = wallet.withPolicy({
   maxSolPerTx: 0.5,

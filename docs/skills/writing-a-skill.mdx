@@ -29,7 +29,7 @@ Each script should be runnable with `npx tsx scripts/my-function.ts [args]` and 
 // scripts/my-function.ts
 import { GlossoWallet } from '@glosso/core';
 
-const wallet = await GlossoWallet.fromEnv();
+const wallet = new GlossoWallet();
 
 // ... do something useful
 

@@ -44,7 +44,7 @@ Returns a scoped version of the same wallet. All subsequent `signAny()`, `signVe
 ```typescript
 import { GlossoWallet, Policy } from "@glosso/core";
 
-const wallet = await GlossoWallet.fromEnv();
+const wallet = new GlossoWallet();
 
 const scopedWallet = wallet.withPolicy({
   // Spend limits

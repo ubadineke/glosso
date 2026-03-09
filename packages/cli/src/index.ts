@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { provisionCommand } from './commands/provision';
-import { statusCommand } from './commands/status';
-import { switchCommand } from './commands/switch';
-import { logsCommand } from './commands/logs';
-import { monitorCommand } from './commands/monitor';
-import { policyCommand } from './commands/policy';
+import { provisionCommand } from './commands/provision.js';
+import { statusCommand } from './commands/status.js';
+import { switchCommand } from './commands/switch.js';
+import { logsCommand } from './commands/logs.js';
+import { monitorCommand } from './commands/monitor.js';
+import { policyCommand } from './commands/policy.js';
 
 const program = new Command();
 

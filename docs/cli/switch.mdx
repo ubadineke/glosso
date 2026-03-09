@@ -38,7 +38,7 @@ Active wallet: EzwNi5jN2xTjaZRqAigXzKp4KyzcN8bXkwA1PHfckGo5
 ```
 
 <Callout type="info">
-  Switching modes updates the `GLOSSO_MODE` value in `~/.glosso/.env`. The next time `GlossoWallet.fromEnv()` is called, it picks up the new mode automatically. Running agents need to be restarted.
+  Switching modes updates the `GLOSSO_MODE` value in `~/.glosso/.env`. The next time `new GlossoWallet()` is constructed, it picks up the new mode automatically. Running agents need to be restarted.
 </Callout>
 
 <Callout type="warning">

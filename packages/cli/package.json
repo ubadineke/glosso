@@ -2,6 +2,7 @@
   "name": "@glosso/cli",
   "version": "0.1.1",
   "description": "Glosso CLI provisioner",
+  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
