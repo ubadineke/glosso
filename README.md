@@ -4,7 +4,7 @@
 
 **Agentic wallet infrastructure for Solana.** Glosso gives any AI agent an autonomous, production-grade Solana wallet it fully controls — no human approval loop, no key exposure, no framework lock-in.
 
-[See illustration here](#illustration)
+[See illustration here](#illustration) · [View demo](https://youtube.com/playlist?list=PL-sHswtXBpJMjiK4NvOmJ-cqs_wlyARq5&si=oUVc9fv-d_4OlytB)
 
 [![npm](https://img.shields.io/npm/v/glosso)](https://www.npmjs.com/package/glosso)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -311,6 +311,13 @@ See [ROADMAP.md](ROADMAP.md) for the full plan.
 Full docs are available at **[ubadineke.mintlify.app](https://ubadineke.mintlify.app)**.
 
 Covers Quick Start, all three wallet modes, the Policy Engine, CLI reference, skills authoring guide, and SDK API.
+
+---
+
+## Resources
+
+- **[In-depth write-up](https://x.com/ubadinekethedev/status/2031889903101821373?s=20)** — the full article on the architecture, security decisions, and how it was built
+- **[Video demos & walkthroughs](https://youtube.com/playlist?list=PL-sHswtXBpJMjiK4NvOmJ-cqs_wlyARq5&si=oUVc9fv-d_4OlytB)** — detailed video content covering the CLI, monitor, and demo agent in action
 
 ---
 
